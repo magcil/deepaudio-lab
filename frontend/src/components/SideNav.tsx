@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import './SideNav.css'
 
-type Page = 'training' | 'evaluation'
+type Page = 'training' | 'evaluation' | 'homepage'
+
 
 interface SideNavProps {
   activePage: Page
@@ -18,6 +19,7 @@ export default function SideNav({ activePage, onNavigate }: SideNavProps) {
 
   return (
     <>
+      {/* Hamburger button */}
       <button
         className="hamburger"
         onClick={() => setIsOpen(prev => !prev)}
@@ -39,6 +41,16 @@ export default function SideNav({ activePage, onNavigate }: SideNavProps) {
         </div>
 
         <div className="nav-group">
+          {/* Homepage */}
+          <button
+            className={`nav-item ${activePage === 'homepage' ? 'is-active' : ''}`}
+            onClick={() => handleNav('homepage')}
+          >
+            Homepage
+            {activePage === 'homepage' && <span className="pill">Active</span>}
+          </button>
+
+          {/* Training */}
           <button
             className={`nav-item ${activePage === 'training' ? 'is-active' : ''}`}
             onClick={() => handleNav('training')}
@@ -47,6 +59,7 @@ export default function SideNav({ activePage, onNavigate }: SideNavProps) {
             {activePage === 'training' && <span className="pill">Active</span>}
           </button>
 
+          {/* Evaluation */}
           <button
             className={`nav-item ${activePage === 'evaluation' ? 'is-active' : ''}`}
             onClick={() => handleNav('evaluation')}
@@ -54,6 +67,7 @@ export default function SideNav({ activePage, onNavigate }: SideNavProps) {
             Evaluation
             {activePage === 'evaluation' && <span className="pill">Active</span>}
           </button>
+
         </div>
       </nav>
     </>
