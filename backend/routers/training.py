@@ -1,0 +1,25 @@
+# routers/training.py
+from fastapi import APIRouter, status
+
+from schemas.train_params import TrainParams
+from services.training_service import TrainingService
+
+router = APIRouter(prefix="/train", tags=["Training"])
+
+@router.post("/", status_code=status.HTTP_202_ACCEPTED)
+def train(params: TrainParams):
+    """Launch an audio classification training task.
+
+    Accepts training parameters, instantiates a TrainingService,
+    and starts training.
+
+    Args:
+        params (TrainParams): Training configuration including dataset paths,
+            model architecture, hyperparameters, and class mapping.
+
+    Returns:
+        dict: A status message confirming the training job has started.
+    """
+    service = TrainingService()
+    service.perform_training(params)
+    return {"status": "started"}
