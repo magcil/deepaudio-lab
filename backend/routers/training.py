@@ -1,4 +1,5 @@
 # routers/training.py
+import threading
 from fastapi import APIRouter, status
 
 from schemas.train_params import TrainParams
@@ -11,7 +12,8 @@ def train(params: TrainParams):
     """Launch an audio classification training task.
 
     Accepts training parameters, instantiates a TrainingService,
-    and starts training.
+    and starts training in a background thread so the request
+    returns immediately.
 
     Args:
         params (TrainParams): Training configuration including dataset paths,
@@ -21,5 +23,6 @@ def train(params: TrainParams):
         dict: A status message confirming the training job has started.
     """
     service = TrainingService()
-    service.perform_training(params)
+    thread = threading.Thread(target=service.perform_training, args=(params,))
+    thread.start()
     return {"status": "started"}
