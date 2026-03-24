@@ -1,0 +1,151 @@
+/* ── Training Form ── */
+.form-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 28px 32px;
+  max-width: 640px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.form-section-title {
+  margin: 0 0 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e5ecf6;
+}
+
+.training-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-field label {
+  margin-top: 15px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9fb5d1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-optional {
+  font-size: 11px;
+  font-weight: 400;
+  color: #5a7a9e;
+  background: rgba(90, 122, 158, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.form-field input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e5ecf6;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-field input::placeholder {
+  color: #4a6280;
+}
+
+.form-field input:focus {
+  border-color: rgba(99, 155, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.form-field select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e5ecf6;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239fb5d1' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.form-field select:focus {
+  border-color: rgba(99, 155, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.form-field select option {
+  background: #0f1a2f;
+  color: #e5ecf6;
+}
+
+.toggle-group {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  color: #9fb5d1;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.toggle-btn + .toggle-btn {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toggle-btn.active {
+  background: #3b6fd4;
+  color: #fff;
+}
+
+.form-actions {
+  padding-top: 4px;
+}
+
+.btn-primary {
+  background: #3b6fd4;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: #4d7fe0;
+}
