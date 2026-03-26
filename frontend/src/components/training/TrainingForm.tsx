@@ -2,6 +2,7 @@ import { useState } from 'react'
 import DataConfigSection from './DataConfigSection'
 import ModelSettingsSection from './ModelSettingsSection'
 import HyperparametersSection from './HyperparametersSection'
+import { startTraining } from '../../services/trainingService'
 import './TrainingForm.css'
 
 export interface TrainingFormData {
@@ -60,22 +61,19 @@ export default function TrainingForm() {
     setForm(prev => ({ ...prev, device: prev.device === 'cpu' ? 'gpu' : 'cpu', gpuIndex: '' }))
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const config = {
-      // Data config
+    const payload = {
       trainingData: form.trainingData,
       validationData: form.validationData || null,
       samplingRate: parseInt(form.samplingRate),
       segmentDuration: parseFloat(form.segmentDuration),
-      // Model settings
       backbone: form.backbone,
       pretrained: form.pretrained,
       freezeBackbone: form.freezeBackbone,
       modelSamplingRate: parseInt(form.modelSamplingRate),
       numClasses: parseInt(form.numClasses),
       checkpoint: form.checkpoint || null,
-      // Hyperparameters
       epochs: parseInt(form.epochs),
       patience: parseInt(form.patience),
       learningRate: parseFloat(form.learningRate),
@@ -84,7 +82,10 @@ export default function TrainingForm() {
       device: form.device,
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
     }
-    console.log('Training config:', config)
+
+    console.log('Submitting training with payload:', payload)
+    await startTraining(payload)
+
   }
 
   return (
