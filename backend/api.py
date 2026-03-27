@@ -3,11 +3,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 from routers import training
 
 # Instantiate api
 app = FastAPI()
 
+# Handle RequestValidationError
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     body = await request.body()

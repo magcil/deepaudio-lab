@@ -1,5 +1,7 @@
 # routers/training.py
+import json
 import threading
+
 from fastapi import APIRouter, status
 
 from schemas.train_params import TrainParams
@@ -22,8 +24,16 @@ def train(params: TrainParams):
     Returns:
         dict: A status message confirming the training job has started.
     """
-    # service = TrainingService()
-    # thread = threading.Thread(target=service.perform_training, args=(params, ))
-    # thread.start()
-    print("Params received for training:", params)
+    # Load class mapping
+    with open(params.class_mapping) as f:
+        class_mapping = json.load(f)
+
+    # Perform training
+    service = TrainingService()
+    thread = threading.Thread(target=service.perform_training, args=(
+        params,
+        class_mapping
+    ))
+    thread.start()
+
     return {"status": "started"}
