@@ -69,24 +69,24 @@ export default function TrainingForm() {
       trainingData: form.trainingData,
       classMapping: form.classMapping || null,
       validationData: form.validationData || null,
-      samplingRate: parseInt(form.samplingRate),
-      segmentDuration: parseFloat(form.segmentDuration),
+      samplingRate: form.samplingRate ? parseInt(form.samplingRate) : undefined,
+      segmentDuration: form.segmentDuration ? parseFloat(form.segmentDuration) : null,
       backbone: form.backbone,
       pretrained: form.pretrained,
       freezeBackbone: form.freezeBackbone,
-      modelSamplingRate: parseInt(form.modelSamplingRate),
       numClasses: parseInt(form.numClasses),
       checkpoint: form.checkpoint || null,
-      epochs: parseInt(form.epochs),
-      patience: parseInt(form.patience),
-      learningRate: parseFloat(form.learningRate),
-      workers: parseInt(form.workers),
-      batchSize: parseInt(form.batchSize),
+      epochs: form.epochs ? parseInt(form.epochs) : undefined,
+      patience: form.patience ? parseInt(form.patience) : undefined,
+      learningRate: form.learningRate ? parseFloat(form.learningRate) : undefined,
+      workers: form.workers ? parseInt(form.workers) : undefined,
+      batchSize: form.batchSize ? parseInt(form.batchSize) : undefined,
       device: form.device,
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
     }
 
     console.log('Submitting training with payload:', payload)
+    console.log('Field types:', Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, `${typeof v} (${v})`])))
     await startTraining(payload)
 
   }
