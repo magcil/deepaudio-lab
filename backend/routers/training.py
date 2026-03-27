@@ -22,7 +22,8 @@ def train(params: TrainParams):
     Returns:
         dict: A status message confirming the training job has started.
     """
-    service = TrainingService()
-    thread = threading.Thread(target=service.perform_training, args=(params,))
-    thread.start()
+    # service = TrainingService()
+    # thread = threading.Thread(target=service.perform_training, args=(params, ))
+    # thread.start()
+    print("Params received for training:", params)
     return {"status": "started"}

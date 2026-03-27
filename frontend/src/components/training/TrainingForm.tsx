@@ -8,6 +8,7 @@ import './TrainingForm.css'
 export interface TrainingFormData {
   // Data config
   trainingData: string
+  classMapping: string
   validationData: string
   samplingRate: string
   segmentDuration: string
@@ -31,6 +32,7 @@ export interface TrainingFormData {
 export default function TrainingForm() {
   const [form, setForm] = useState<TrainingFormData>({
     trainingData: '',
+    classMapping: '',
     validationData: '',
     samplingRate: '',
     segmentDuration: '',
@@ -65,6 +67,7 @@ export default function TrainingForm() {
     e.preventDefault()
     const payload = {
       trainingData: form.trainingData,
+      classMapping: form.classMapping || null,
       validationData: form.validationData || null,
       samplingRate: parseInt(form.samplingRate),
       segmentDuration: parseFloat(form.segmentDuration),

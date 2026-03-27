@@ -1,7 +1,7 @@
 import type { TrainingFormData } from './TrainingForm'
 
 interface Props {
-  values: Pick<TrainingFormData, 'trainingData' | 'validationData' | 'samplingRate' | 'segmentDuration'>
+  values: Pick<TrainingFormData, 'trainingData' | 'classMapping' | 'validationData' | 'samplingRate' | 'segmentDuration'>
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
@@ -18,6 +18,19 @@ export default function DataConfigSection({ values, onChange }: Props) {
           type="text"
           placeholder="Path or identifier for training dataset"
           value={values.trainingData}
+          onChange={onChange}
+          required
+        />
+      </div>
+
+      <div className="form-field">
+        <label htmlFor="classMapping">Class Mapping</label>
+        <input
+          id="classMapping"
+          name="classMapping"
+          type="text"
+          placeholder="Path or identifier for class mapping"
+          value={values.classMapping}
           onChange={onChange}
           required
         />
