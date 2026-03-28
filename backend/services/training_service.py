@@ -13,6 +13,8 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
+from schemas.train_params import TrainParams
+
 
 @dataclass
 class TrainingState:
@@ -128,54 +130,55 @@ class TrainingService:
 
         return total_loss / max(1, len(dataloader))
 
-    def perform_training(self, params):
+    def perform_training(self, params: TrainParams, class_mapping: dict):
         """Execute the full training pipeline.
 
         Args:
             params (TrainParams): Training configuration
+            class_mapping (dict): Mapping between class names and integers
         """
         self.epochs = params.epochs
-        self.device = get_device(device_index=params.device_index)
+        self.device = get_device(device_index=params.gpu_index)
 
         self.model = AudioClassifier(
-            num_classes=len(params.class_mapping),
+            num_classes=len(class_mapping),
             backbone=params.backbone,
-            sample_rate=params.sample_rate,
-            pretrained=params.pretrained_backbone,
+            sample_rate=params.sampling_rate,
+            pretrained=params.pretrained,
             freeze_backbone=params.freeze_backbone,
         )
         self.model.to(self.device)
 
-        self.optimizer = Adam(params=self.model.parameters(), lr=params.lr)
+        self.optimizer = Adam(params=self.model.parameters(), lr=params.learning_rate)
         self.scheduler = ReduceLROnPlateau(self.optimizer, "min")
         self.loss_function = nn.CrossEntropyLoss()
 
         self.callbacks = [
-            Checkpointer(path_to_checkpoint=params.checkpoint_name, logger=self.logger),
+            Checkpointer(path_to_checkpoint=f"{params.checkpoint}.pt", logger=self.logger),
             EarlyStopper(patience=params.patience, logger=self.logger),
         ]
 
         train_dataset = audio_classification_dataset_from_dir(
             root_dir=params.training_data,
-            sample_rate=params.sample_rate,
+            sample_rate=params.sampling_rate,
             segment_duration=params.segment_duration,
-            class_mapping=params.class_mapping,
+            class_mapping=class_mapping,
         )
 
         validation_dataset = None
         if params.validation_data:
             validation_dataset = audio_classification_dataset_from_dir(
                 root_dir=params.validation_data,
-                sample_rate=params.sample_rate,
+                sample_rate=params.sampling_rate,
                 segment_duration=params.segment_duration,
-                class_mapping=params.class_mapping,
+                class_mapping=class_mapping,
             )
 
         train_dloader, validation_dloader = self._resolve_dataloaders(
             train_dset=train_dataset,
             validation_dset=validation_dataset,
             batch_size=params.batch_size,
-            num_workers=params.num_workers,
+            num_workers=params.workers,
         )
 
         for cb in self.callbacks:
