@@ -34,4 +34,6 @@ def train(params: TrainParams):
     thread = threading.Thread(target=service.perform_training, args=(params, class_mapping))
     thread.start()
 
+    print("Training has started in a background thread!")  # Just for confirmation in the console
+
     return {"status": "started"}
