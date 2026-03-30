@@ -9,6 +9,7 @@ from routers import training
 # Instantiate api
 app = FastAPI()
 
+
 # Handle RequestValidationError
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
@@ -17,8 +18,6 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     print("[422] Validation errors:", exc.errors())
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
-# Add routers
-app.include_router(training.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +26,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add routers
+app.include_router(training.router)
+
+
+# Check status point
+@app.get("/")
+async def root():
+    return {"message": "FastAPI backend is running!"}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

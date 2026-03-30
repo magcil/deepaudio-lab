@@ -27,6 +27,7 @@ class TrainingState:
         validation_loss: Ordered list of average validation losses per epoch.
         early_stop: Flag indicating whether early stopping has been triggered.
     """
+
     current_epoch: int = 1
     lowest_loss: float = np.inf
     train_loss: list[float] = field(default_factory=list)
@@ -36,18 +37,13 @@ class TrainingState:
 
 class TrainingService:
     """Orchestrates the full audio classification training pipeline."""
+
     def __init__(self):
         """Initialize the training service with a fresh training state and logger."""
         self.state = TrainingState()
         self.logger = logging.getLogger(__name__)
-    
-    def _resolve_dataloaders(
-        self, 
-        train_dset, 
-        validation_dset, 
-        batch_size, 
-        num_workers
-    ):
+
+    def _resolve_dataloaders(self, train_dset, validation_dset, batch_size, num_workers):
         """Build PyTorch DataLoaders for training and validation.
 
         If no validation dataset is provided, the training dataset is

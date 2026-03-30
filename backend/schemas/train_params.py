@@ -31,13 +31,14 @@ class TrainParams(BaseModel):
         device: Device type for training ('cuda' or 'cpu').
         class_mapping: String path to the JSON file with the class mapping dictionary.
     """
-    model_config = ConfigDict(extra='ignore', populate_by_name=True, alias_generator=to_camel)
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True, alias_generator=to_camel)
 
     training_data: str
     validation_data: str | None = Field(default=None)
     sampling_rate: int = Field(default=16_000)
     segment_duration: float | None = Field(default=None)
-    backbone: str 
+    backbone: str
     pretrained: bool = Field(default=False)
     freeze_backbone: bool = Field(default=False)
     pooling: str = Field(default="gap")
@@ -50,16 +51,16 @@ class TrainParams(BaseModel):
     batch_size: int = Field(default=8)
     gpu_index: int | None = Field(default=0)
     device: str = Field(default="cpu")
-    class_mapping: str 
+    class_mapping: str
 
-    @field_validator('device', mode='before')
+    @field_validator("device", mode="before")
     @classmethod
     def normalize_device(cls, v: str) -> str:
-        if v == 'gpu':
-            return 'cuda'
+        if v == "gpu":
+            return "cuda"
         return v
 
-    @field_validator('gpu_index', mode='before')
+    @field_validator("gpu_index", mode="before")
     @classmethod
     def handle_null_gpu_index(cls, v) -> int:
         if v is None:
