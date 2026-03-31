@@ -9,6 +9,7 @@ from services.training_service import TrainingService
 
 router = APIRouter(prefix="/train", tags=["Training"])
 
+
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
 def train(params: TrainParams):
     """Launch an audio classification training task.
@@ -30,10 +31,9 @@ def train(params: TrainParams):
 
     # Perform training
     service = TrainingService()
-    thread = threading.Thread(target=service.perform_training, args=(
-        params,
-        class_mapping
-    ))
+    thread = threading.Thread(target=service.perform_training, args=(params, class_mapping))
     thread.start()
+
+    print("Training has started in a background thread!")  # Just for confirmation in the console
 
     return {"status": "started"}

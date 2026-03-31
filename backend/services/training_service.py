@@ -12,6 +12,7 @@ from deepaudiox.utils.training_utils import get_device, pad_collate_fn, random_s
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from schemas.train_params import TrainParams
 
@@ -27,6 +28,7 @@ class TrainingState:
         validation_loss: Ordered list of average validation losses per epoch.
         early_stop: Flag indicating whether early stopping has been triggered.
     """
+
     current_epoch: int = 1
     lowest_loss: float = np.inf
     train_loss: list[float] = field(default_factory=list)
@@ -36,18 +38,14 @@ class TrainingState:
 
 class TrainingService:
     """Orchestrates the full audio classification training pipeline."""
+
     def __init__(self):
         """Initialize the training service with a fresh training state and logger."""
         self.state = TrainingState()
-        self.logger = logging.getLogger(__name__)
-    
-    def _resolve_dataloaders(
-        self, 
-        train_dset, 
-        validation_dset, 
-        batch_size, 
-        num_workers
-    ):
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        self.logger = logging.getLogger("ConsoleLogger")
+
+    def _resolve_dataloaders(self, train_dset, validation_dset, batch_size, num_workers):
         """Build PyTorch DataLoaders for training and validation.
 
         If no validation dataset is provided, the training dataset is
@@ -96,7 +94,7 @@ class TrainingService:
         self.model.train()
         total_loss = 0.0
 
-        for batch in dataloader:
+        for batch in tqdm(dataloader, desc=f"Epoch {self.state.current_epoch} [train]"):
             self.optimizer.zero_grad()
             x = batch["feature"].to(self.device)
             y_true = batch["y_true"].to(self.device)
@@ -121,7 +119,7 @@ class TrainingService:
         total_loss = 0.0
 
         with torch.no_grad():
-            for batch in dataloader:
+            for batch in tqdm(dataloader, desc=f"Epoch {self.state.current_epoch} [val]"):
                 x = batch["feature"].to(self.device)
                 y_true = batch["y_true"].to(self.device)
                 y_pred = self.model(x)
