@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import DataConfigSection from './DataConfigSection'
 import ModelSettingsSection from './ModelSettingsSection'
 import HyperparametersSection from './HyperparametersSection'
-import { startTraining } from '../../services/trainingService'
+import { startTraining, getTrainingOptions, type TrainingOptions } from '../../services/trainingService'
 import './TrainingForm.css'
 
 export interface TrainingFormData {
@@ -14,6 +14,7 @@ export interface TrainingFormData {
   segmentDuration: string
   // Model settings
   backbone: string
+  poolingMethod: string
   pretrained: boolean
   freezeBackbone: boolean
   modelSamplingRate: string
@@ -30,6 +31,17 @@ export interface TrainingFormData {
 }
 
 export default function TrainingForm() {
+  const [options, setOptions] = useState<TrainingOptions>({ backbones: [], poolingMethods: [], gpuIndexes: [] })
+
+  useEffect(() => {
+    getTrainingOptions()
+      .then(data => {
+        console.log('Training options:', data)
+        setOptions(data)
+      })
+      .catch(console.error)
+  }, [])
+
   const [form, setForm] = useState<TrainingFormData>({
     trainingData: '',
     classMapping: '',
@@ -37,6 +49,7 @@ export default function TrainingForm() {
     samplingRate: '',
     segmentDuration: '',
     backbone: 'beats',
+    poolingMethod: '',
     pretrained: true,
     freezeBackbone: false,
     modelSamplingRate: '',
@@ -60,6 +73,7 @@ export default function TrainingForm() {
   }
 
   function handleDeviceToggle() {
+    console.log('Toggling device from', form.device)
     setForm(prev => ({ ...prev, device: prev.device === 'cpu' ? 'gpu' : 'cpu', gpuIndex: '' }))
   }
 
@@ -72,6 +86,7 @@ export default function TrainingForm() {
       samplingRate: form.samplingRate ? parseInt(form.samplingRate) : undefined,
       segmentDuration: form.segmentDuration ? parseFloat(form.segmentDuration) : null,
       backbone: form.backbone,
+      pooling: form.poolingMethod || null,
       pretrained: form.pretrained,
       freezeBackbone: form.freezeBackbone,
       numClasses: parseInt(form.numClasses),
@@ -94,8 +109,8 @@ export default function TrainingForm() {
   return (
     <form className="training-form" onSubmit={handleSubmit}>
       <DataConfigSection values={form} onChange={handleChange} />
-      <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} />
-      <HyperparametersSection values={form} onChange={handleChange} onToggle={handleDeviceToggle} />
+      <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} />
+      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceToggle} gpuIndexes={options.gpuIndexes} />
 
       <div className="form-actions">
         <button type="submit" className="btn-primary">Start Training</button>
