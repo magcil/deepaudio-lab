@@ -22,6 +22,7 @@ class EvaluationState:
         y_pred (np.ndarray): A NumPy array of predicted labels.
         posteriors (np.ndarray): A NumPy array of posterior probabilities.
     """
+
     y_true: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
     y_pred: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
     posteriors: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
@@ -50,40 +51,24 @@ class EvaluationService:
         self.device = get_device(device_index=params.gpu_index)
         self.callbacks = [Reporter(logger=self.logger)]
 
-        # Build model
-        self.model = AudioClassifier(
-            num_classes=len(self.class_mapping),
-            backbone=params.backbone,
-            sample_rate=params.sampling_rate,
-            pretrained=False,
-            freeze_backbone=True
-        )
-
-        # Load weights
-        state_dict = torch.load(params.model_checkpoint)
-        self.model.load_state_dict(state_dict)
+        # Build model / Load from checkpoint (deepaudio-x >= v0.4.2)
+        self.model = AudioClassifier.from_checkpoint(params.model_checkpoint)
         self.model.to(self.device)
         self.model.eval()
-
 
         # Load data
         dataset = audio_classification_dataset_from_dir(
             root_dir=params.evaluation_data,
             sample_rate=params.sampling_rate,
             segment_duration=params.segment_duration,
-            class_mapping=self.class_mapping
+            class_mapping=self.class_mapping,
         )
 
-        dataloader = DataLoader(
-            dataset,
-            batch_size=params.batch_size,
-            shuffle=False,
-            num_workers=params.workers
-        )
+        dataloader = DataLoader(dataset, batch_size=params.batch_size, shuffle=False, num_workers=params.workers)
 
         # Perform evaluation
         y_true_batches, y_pred_batches, posterior_batches = [], [], []
-        with tqdm(dataloader, unit="batch", leave=False, desc="Evaluation phase") as tbar:
+        with torch.inference_mode(), tqdm(dataloader, unit="batch", leave=False, desc="Evaluation phase") as tbar:
             for batch in tbar:
                 # Move inputs
                 x = batch["feature"].to(self.device)

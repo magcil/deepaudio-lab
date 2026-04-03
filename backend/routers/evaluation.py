@@ -35,6 +35,6 @@ def evaluate(params: EvaluationParams):
     thread = threading.Thread(target=service.perform_evaluation, args=(params,))
     thread.start()
 
-    print("Evaluation has started in a background thread!") 
+    print("Evaluation has started in a background thread!")
 
-    return {"status": params}
+    return {"status": "started"}

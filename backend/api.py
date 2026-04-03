@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from routers import training, evaluation
+from routers import evaluation, training
 
 # Instantiate api
 app = FastAPI()

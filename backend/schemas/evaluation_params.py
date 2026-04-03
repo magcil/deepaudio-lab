@@ -1,4 +1,4 @@
-# schemas/train_params.py
+# schemas/evaluation_params.py
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
@@ -14,14 +14,12 @@ class EvaluationParams(BaseModel):
         sampling_rate: Audio sample rate in Hz.
         segment_duration: Duration in seconds to segment audio clips.
             If None, full audio clips are used.
-        backbone: Name of the backbone model architecture.
-        pooling: Pooling strategy applied to backbone output.
         num_classes: Number of target classes.
         model_checkpoint: Path to the pretrained weights.
         workers: Number of workers for data loading.
-        batch_size: Number of samples per training batch.
+        batch_size: Number of samples per batch.
         gpu_index: Index of the GPU device to use.
-        device: Device type for training ('cuda' or 'cpu').
+        device: Device type for evaluation ('cuda' or 'cpu').
         class_mapping: String path to the JSON file with the class mapping dictionary.
     """
 
@@ -34,12 +32,9 @@ class EvaluationParams(BaseModel):
     gpu_index: int | None = Field(default=0)
     workers: int = Field(default=2)
     model_checkpoint: str
-    backbone: str
-    pooling: str = Field(default="gap")
     num_classes: int
     batch_size: int = Field(default=8)
     class_mapping: str
-    
 
     @field_validator("device", mode="before")
     @classmethod
