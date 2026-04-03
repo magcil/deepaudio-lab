@@ -1,14 +1,14 @@
 import type { TrainingFormData } from './TrainingForm'
 
-const BACKBONES = ['beats', 'passt', 'mobilenet_05_as', 'mobilenet_10_as', 'mobilenet_40_as']
-
 interface Props {
-  values: Pick<TrainingFormData, 'backbone' | 'pretrained' | 'freezeBackbone' | 'modelSamplingRate' | 'numClasses' | 'checkpoint'>
+  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'modelSamplingRate' | 'numClasses' | 'checkpoint'>
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
   onToggle: (name: keyof TrainingFormData) => void
+  backbones: string[]
+  poolingMethods: string[]
 }
 
-export default function ModelSettingsSection({ values, onChange, onToggle }: Props) {
+export default function ModelSettingsSection({ values, onChange, onToggle, backbones, poolingMethods }: Props) {
   return (
     <div className="form-card">
       <h3 className="form-section-title">Model Settings</h3>
@@ -16,8 +16,17 @@ export default function ModelSettingsSection({ values, onChange, onToggle }: Pro
       <div className="form-field">
         <label htmlFor="backbone">Backbone</label>
         <select id="backbone" name="backbone" value={values.backbone} onChange={onChange}>
-          {BACKBONES.map(b => (
+          {backbones.map(b => (
             <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="form-field">
+        <label htmlFor="poolingMethod">Pooling Method</label>
+        <select id="poolingMethod" name="poolingMethod" value={values.poolingMethod} onChange={onChange}>
+          {poolingMethods.map(p => (
+            <option key={p} value={p}>{p}</option>
           ))}
         </select>
       </div>

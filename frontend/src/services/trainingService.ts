@@ -1,5 +1,9 @@
 import client from '../api/client';
 
+
+
+
+// ------- For starting training job -------
 export interface TrainingPayload {
   // Data config
   trainingData: string;
@@ -34,3 +38,15 @@ export interface TrainingResponse {
 
 export const startTraining = (payload: TrainingPayload): Promise<void> =>
   client.post<void>('/train/', payload);
+
+
+// ---------- For fetching training options ----------
+
+export interface TrainingOptions {
+  backbones: string[];
+  poolingMethods: string[];
+  gpuIndexes: number[];
+}
+
+export const getTrainingOptions = (): Promise<TrainingOptions> =>
+  client.get<TrainingOptions>('/train/options');
