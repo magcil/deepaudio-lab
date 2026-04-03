@@ -25,7 +25,7 @@ def evaluate(params: EvaluationParams):
     Returns:
         dict: A status message confirming the training job has started.
     """
-
+    
     # Load class mapping
     with open(params.class_mapping) as f:
         class_mapping = json.load(f)

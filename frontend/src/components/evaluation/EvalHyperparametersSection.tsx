@@ -2,11 +2,12 @@ import type { EvaluationFormData } from './EvaluationForm'
 
 interface Props {
   values: Pick<EvaluationFormData, 'batchSize' | 'workers' | 'device' | 'gpuIndex'>
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  onDeviceToggle: () => void
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
+  onDeviceChange: (device: 'cpu' | 'gpu') => void
+  gpuIndexes: number[]
 }
 
-export default function EvalHyperparametersSection({ values, onChange, onDeviceToggle }: Props) {
+export default function EvalHyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes }: Props) {
   return (
     <div className="form-card">
       <h3 className="form-section-title">Evaluation Hyperparameters</h3>
@@ -51,14 +52,15 @@ export default function EvalHyperparametersSection({ values, onChange, onDeviceT
             <button
               type="button"
               className={`toggle-btn ${values.device === 'cpu' ? 'active' : ''}`}
-              onClick={onDeviceToggle}
+              onClick={() => onDeviceChange('cpu')}
             >
               CPU
             </button>
             <button
               type="button"
               className={`toggle-btn ${values.device === 'gpu' ? 'active' : ''}`}
-              onClick={onDeviceToggle}
+              onClick={() => onDeviceChange('gpu')}
+              title={gpuIndexes.length === 0 ? 'No GPUs available' : undefined}
             >
               GPU
             </button>
@@ -68,17 +70,18 @@ export default function EvalHyperparametersSection({ values, onChange, onDeviceT
         {values.device === 'gpu' && (
           <div className="form-field">
             <label htmlFor="gpuIndex">GPU Index</label>
-            <input
+            <select
               id="gpuIndex"
               name="gpuIndex"
-              type="number"
-              placeholder="e.g. 0"
-              min={0}
-              step={1}
               value={values.gpuIndex}
               onChange={onChange}
               required
-            />
+            >
+              <option value="" disabled>Select GPU</option>
+              {gpuIndexes.map(i => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
