@@ -3,8 +3,7 @@ import json
 import threading
 
 import torch
-from deepaudiox.modules.pooling import POOLING
-from deepaudiox.schemas.types import BackboneName
+from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
 from fastapi import APIRouter, status
 
 from schemas.train_params import TrainingOptionsResponse, TrainParams
@@ -49,8 +48,8 @@ def get_training_options():
     Returns:
         dict: Lists containing available backbones, pooling methods, and GPU indexes.
     """
-    backbones = list(BackboneName.__args__)
-    pooling_methods = list(POOLING.keys())
+    backbones = list(AVAILABLE_BACKBONES)
+    pooling_methods = list(AVAILABLE_POOLING)
 
     gpu_indexes = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
 
