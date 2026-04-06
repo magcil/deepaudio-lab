@@ -1,7 +1,7 @@
 import type { EvaluationFormData } from './EvaluationForm'
 
 interface Props {
-  values: Pick<EvaluationFormData, 'evaluationData' | 'samplingRate' | 'segmentDuration'>
+  values: Pick<EvaluationFormData, 'evaluationData' | 'classMapping' | 'samplingRate' | 'segmentDuration'>
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
@@ -18,6 +18,19 @@ export default function EvalDataConfigSection({ values, onChange }: Props) {
           type="text"
           placeholder="Full path to test data"
           value={values.evaluationData}
+          onChange={onChange}
+          required
+        />
+      </div>
+
+      <div className="form-field">
+        <label htmlFor="classMapping">Class Mapping</label>
+        <input
+          id="classMapping"
+          name="classMapping"
+          type="text"
+          placeholder="Path or identifier for class mapping"
+          value={values.classMapping}
           onChange={onChange}
           required
         />

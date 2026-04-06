@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from routers import training
+from routers import evaluation, training
 
 # Instantiate api
 app = FastAPI()
@@ -29,6 +29,7 @@ app.add_middleware(
 
 # Add routers
 app.include_router(training.router)
+app.include_router(evaluation.router)
 
 
 # Check status point

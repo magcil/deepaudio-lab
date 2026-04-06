@@ -67,12 +67,14 @@ class TrainParams(BaseModel):
             return 0
         return v
 
+
 class TrainingOptionsResponse(BaseModel):
     """Schema for the available training options.
-    
+
     Returns lists of available backbones, pooling methods, and GPU indexes.
     Field aliases map camelCase frontend keys to snake_case Python names.
     """
+
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     backbones: list[str]
