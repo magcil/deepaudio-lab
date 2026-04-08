@@ -1,23 +1,26 @@
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
+from db.session import Base, engine
+from exceptions.handlers import register_exception_handlers
 from routers import evaluation, training
+
+from models import (
+    run,
+    loss,
+    classification_report,
+    train_params,
+    evaluation_params
+)
+
 
 # Instantiate api
 app = FastAPI()
+register_exception_handlers(app)
 
-
-# Handle RequestValidationError
-@app.exception_handler(RequestValidationError)
-async def validation_error_handler(request: Request, exc: RequestValidationError):
-    body = await request.body()
-    print("[422] Raw request body:", body.decode())
-    print("[422] Validation errors:", exc.errors())
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
-
+# Init database
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,

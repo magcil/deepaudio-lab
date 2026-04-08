@@ -1,15 +1,14 @@
-import enum
 
 from deepaudiox.modules.pooling import POOLING
 from deepaudiox.schemas.types import BackboneName
-from sqlalchemy import JSON, Boolean, Column, Enum, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship, validates
 
 from db.session import Base
 
 # Dynamically built enum of supported by backbone and pooling names, sourced from DeepAudioX
-BACKBONES_ENUM = enum.Enum("Backbone", {n: n for n in list(BackboneName.__args__)}, type=str)
-POOLINGS_ENUM = enum.Enum("Pooling", {n: n for n in list(POOLING.keys())}, type=str)
+VALID_BACKBONES: frozenset[str] = frozenset(BackboneName.__args__)
+VALID_POOLINGS: frozenset[str] = frozenset(POOLING.keys())
 
 class TrainParams(Base):
     """Database model for the parameters required for training.
@@ -70,8 +69,14 @@ class TrainParams(Base):
             Back-populated from ``Run.train_params``.
     """
     __tablename__ = "train_params"
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, unique=True)
+    run_id = Column(
+        Integer,
+        ForeignKey("run.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
     class_mapping = Column(JSON, nullable=False)
     batch_size = Column(Integer, nullable=False, default=8)
     num_workers = Column(Integer, nullable=False, default=2)
@@ -81,23 +86,36 @@ class TrainParams(Base):
     sample_rate = Column(Integer, nullable=False, default=16_000)
     segment_duration = Column(Float)
     n_classes = Column(Integer, nullable=False)
-    backbone = Column(Enum(BACKBONES_ENUM, native_enum=False), nullable=False)
+    backbone = Column(String, nullable=False)
     pretrained_backbone = Column(Boolean, nullable=False)
-    pooling = Column(
-        Enum(POOLINGS_ENUM, native_enum=False),
-        nullable=False,
-        default=POOLINGS_ENUM("gap")
-    )
-    freeze_backbone = Column(Boolean, nullable=False)    
+    pooling = Column(String, nullable=False, default="gap")
+    freeze_backbone = Column(Boolean, nullable=False)
     path_to_checkpoint = Column(String, nullable=False)
     path_to_train = Column(String, nullable=False)
     path_to_validation = Column(String)
     device = Column(String, default="cpu")
     gpu_index = Column(Integer, default=0)
 
-    # Define relationships
     run = relationship(
-        "Run", 
+        "Run",
         back_populates="train_params",
         foreign_keys=[run_id],
     )
+
+    @validates("backbone")
+    def _validate_backbone(self, key: str, value: str) -> str:
+        if value not in VALID_BACKBONES:
+            raise ValueError(
+                f"Invalid backbone '{value}'. "
+                f"Must be one of: {sorted(VALID_BACKBONES)}"
+            )
+        return value
+
+    @validates("pooling")
+    def _validate_pooling(self, key: str, value: str) -> str:
+        if value not in VALID_POOLINGS:
+            raise ValueError(
+                f"Invalid pooling '{value}'. "
+                f"Must be one of: {sorted(VALID_POOLINGS)}"
+            )
+        return value

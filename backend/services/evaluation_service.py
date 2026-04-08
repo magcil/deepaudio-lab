@@ -1,4 +1,5 @@
 # services/evaluation_service.py
+import json
 import logging
 from dataclasses import dataclass, field
 
@@ -7,9 +8,14 @@ import torch
 from deepaudiox import AudioClassifier, audio_classification_dataset_from_dir
 from deepaudiox.callbacks.reporter import Reporter
 from deepaudiox.utils.training_utils import get_device
+from sqlalchemy.orm import Session
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
+from models.evaluation_params import EvaluationParams as EvaluationParamsModel
+from models.run import Run, TaskType
+from repositories import run_repository
 from schemas.evaluation_params import EvaluationParams
 
 
@@ -31,16 +37,64 @@ class EvaluationState:
 class EvaluationService:
     """Orchestrates the full audio classification evaluation pipeline."""
 
-    def __init__(self, class_mapping: dict):
+    def __init__(self):
         """Initialize the evaluation service with a fresh evaluation state and logger.
 
         Args:
             class_mapping (dict): Mapping between class names and integers
         """
         self.state = EvaluationState()
-        self.class_mapping = class_mapping
+        self.class_mapping = {}
         logging.basicConfig(level=logging.INFO, format="%(message)s")
         self.logger = logging.getLogger("ConsoleLogger")
+
+    def register_run(
+        self, db: Session, params: EvaluationParams
+    ) -> tuple[Run, EvaluationParams, dict]:
+        # --- Validate external resources ---
+        try:
+            with open(params.class_mapping) as f:
+                class_mapping = json.load(f)
+        except FileNotFoundError as e:
+            raise ResourceNotFoundError("ClassMapping", params.class_mapping) from e
+        except json.JSONDecodeError as e:
+            raise InvalidResourceError(
+                "ClassMapping", params.class_mapping, reason=str(e)
+            ) from e
+        
+        self.class_mapping = class_mapping
+
+        # --- Validate referenced entities ---
+        parent_run_id = None
+        if params.parent_run_name is not None:
+            parent = run_repository.get_by_name(db, params.parent_run_name)
+            if parent is None:
+                raise ReferencedEntityNotFoundError("Run", params.parent_run_name)
+            parent_run_id = parent.id
+
+        # --- Build entities ---
+        run = Run(
+            name=params.name,
+            description=params.description,
+            task_type=TaskType.evaluation,
+            parent_run_id=parent_run_id,
+        )
+
+        evaluation_params = EvaluationParamsModel(
+            run=run, 
+            path_to_test=params.evaluation_data,
+            path_to_checkpoint=params.model_checkpoint,
+            class_mapping=class_mapping,
+        )
+        # --- Single transaction: both rows commit together or neither does ---
+        created_run, created_evaluation_params = run_repository.create_with_evaluation_params(
+            db=db,
+            run=run,
+            evaluation_params=evaluation_params
+        )
+
+        return created_run, created_evaluation_params, class_mapping
+    
 
     def perform_evaluation(self, params: EvaluationParams):
         """Execute the full evaluation pipeline.
