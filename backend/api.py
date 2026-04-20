@@ -7,13 +7,12 @@ from exceptions.handlers import register_exception_handlers
 from routers import evaluation, training
 
 from models import (
-    run,
-    loss,
     classification_report,
-    train_params,
-    evaluation_params
+    evaluation_params,
+    loss,
+    run,
+    train_params
 )
-
 
 # Instantiate api
 app = FastAPI()

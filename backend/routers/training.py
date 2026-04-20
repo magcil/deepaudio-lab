@@ -1,7 +1,8 @@
 # routers/training.py
 
-import torch
 import threading
+
+import torch
 from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session

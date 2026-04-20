@@ -1,12 +1,8 @@
+
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
-from typing import List
 
-from exceptions.exceptions import (
-    RepositoryError, 
-    ReferencedEntityNotFoundError, 
-    DuplicateEntityError
-)
+from exceptions.exceptions import DuplicateEntityError, ReferencedEntityNotFoundError, RepositoryError
 from models.loss import Loss
 
 
@@ -31,7 +27,7 @@ def create(db: Session, loss: Loss) -> Loss:
         db.rollback()
         raise RepositoryError("Failed to create loss") from e
     
-def create_many(db: Session, losses: List[Loss]) -> List[Loss]:
+def create_many(db: Session, losses: list[Loss]) -> list[Loss]:
     try:
         db.add_all(losses)
         db.commit()

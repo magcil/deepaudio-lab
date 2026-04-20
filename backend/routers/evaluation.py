@@ -1,8 +1,10 @@
 # routers/evaluation.py
 
+import threading
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
-import threading
+
 from db.session import get_db
 from schemas.evaluation_params import EvaluationParams
 from services.evaluation_service import EvaluationService

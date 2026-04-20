@@ -2,9 +2,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from exceptions.exceptions import DuplicateEntityError, RepositoryError
+from models.evaluation_params import EvaluationParams
 from models.run import Run
 from models.train_params import TrainParams
-from models.evaluation_params import EvaluationParams
 
 
 def create(db: Session, run: Run) -> Run:

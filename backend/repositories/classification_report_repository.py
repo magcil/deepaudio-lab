@@ -1,12 +1,8 @@
+
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
-from typing import List
 
-from exceptions.exceptions import (
-    RepositoryError, 
-    ReferencedEntityNotFoundError, 
-    DuplicateEntityError
-)
+from exceptions.exceptions import ReferencedEntityNotFoundError, RepositoryError
 from models.classification_report import ClassificationReport
 
 

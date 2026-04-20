@@ -6,10 +6,10 @@ from sqlalchemy.orm import relationship
 from db.session import Base
 
 
-class SplitType(str, enum.Enum):
+class SplitType(str, enum.StrEnum):
     """Dataset split a loss value was computed on.
 
-    Inherits from both `str` and `enum.Enum` so that
+    Inherits from both `str` and `enum.StrEnum` so that
     members behave as plain strings, while still providing
     the type safety and validation of a Python enum.
 

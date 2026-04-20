@@ -7,10 +7,10 @@ from sqlalchemy.sql import func
 from db.session import Base
 
 
-class TaskType(str, enum.Enum):
-    """Kind of work a run represents.
+class TaskType(str, enum.StrEnum):
+    """Kind of task work a run represents.
 
-    Inherits from both `str` and `enum.Enum` so that
+    Inherits from both `str` and `enum.StrEnum` so that
     members behave as plain strings, while still providing 
     the type safety and validation of a Python enum.
 

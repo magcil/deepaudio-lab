@@ -8,19 +8,18 @@ import torch
 from deepaudiox import AudioClassifier, audio_classification_dataset_from_dir
 from deepaudiox.callbacks.reporter import Reporter
 from deepaudiox.utils.training_utils import get_device
+from sklearn.metrics import classification_report
 from sqlalchemy.orm import Session
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from db.session import SessionLocal
 from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
 from models.classification_report import ClassificationReport
 from models.evaluation_params import EvaluationParams as EvaluationParamsModel
 from models.run import Run, TaskType
-from repositories import run_repository, classification_report_repository
+from repositories import classification_report_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
-from db.session import SessionLocal
-from sklearn.metrics import classification_report
-
 
 
 @dataclass
@@ -134,7 +133,9 @@ class EvaluationService:
             # Perform evaluation
             y_true_batches, y_pred_batches, posterior_batches = [], [], []
             try:
-                with torch.inference_mode(), tqdm(dataloader, unit="batch", leave=False, desc="Evaluation phase") as tbar:
+                with torch.inference_mode(), tqdm(
+                    dataloader, unit="batch", leave=False, desc="Evaluation phase"
+                ) as tbar:
                     for batch in tbar:
                         x = batch["feature"].to(self.device)
                         y_true = batch["y_true"].cpu().numpy()

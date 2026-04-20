@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
-from models.run import Run, TaskType
-from models.loss import Loss
-from models.train_params import TrainParams as TrainParamsModel
-from repositories import run_repository, loss_repository
-from schemas.train_params import TrainParams
 from db.session import SessionLocal
+from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
+from models.loss import Loss
+from models.run import Run, TaskType
+from models.train_params import TrainParams as TrainParamsModel
+from repositories import loss_repository, run_repository
+from schemas.train_params import TrainParams
 
 
 class TrainingService:
