@@ -55,6 +55,14 @@ def create_with_evaluation_params(
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError("Failed to create run with train params") from e
+
+
+def get_by_id(db: Session, id: int) -> Run | None:
+    try:
+        return db.query(Run).filter(Run.id == id)
+    except SQLAlchemyError as e:
+        raise RepositoryError(f"Failed to fetch run by ID '{id}'") from e
+    
     
 def get_by_name(db: Session, name: str) -> Run | None:
     try:

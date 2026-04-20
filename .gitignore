@@ -211,3 +211,6 @@ __marimo__/
 
 # PyTorch checkpoints
 *.pt
+
+# Database files
+*.db

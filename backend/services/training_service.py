@@ -11,9 +11,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
 from models.run import Run, TaskType
+from models.loss import Loss
 from models.train_params import TrainParams as TrainParamsModel
-from repositories import run_repository
+from repositories import run_repository, loss_repository
 from schemas.train_params import TrainParams
+from db.session import SessionLocal
 
 
 class TrainingService:
@@ -21,7 +23,9 @@ class TrainingService:
         self.logger = logging.getLogger(__name__)
 
     def register_run(
-        self, db: Session, params: TrainParams
+        self, 
+        db: Session, 
+        params: TrainParams
     ) -> tuple[Run, TrainParamsModel, dict]:
         # --- Validate external resources ---
         try:
@@ -80,79 +84,140 @@ class TrainingService:
         )
 
         return created_run, created_train_params, class_mapping
+    
+    def register_losses(
+        self, 
+        db: Session, 
+        train_loss: float, 
+        validation_loss: float,
+        epoch: int, 
+        run_id: int
+    ):
+        # Save loss
+        train_loss_object = Loss(
+            run_id = run_id,
+            epoch = epoch,
+            loss = train_loss,
+            split_type = "train"
+        )
 
-    def perform_training(self, params: TrainParams):
+        validation_loss_object = Loss(
+            run_id = run_id,
+            epoch = epoch,
+            loss = validation_loss,
+            split_type = "validation"
+        )
+
+        saved_loss = loss_repository.create_many(
+            db = db,
+            losses = [
+                train_loss_object,
+                validation_loss_object
+            ]
+        )
+
+        return saved_loss
+
+    def perform_training(
+        self, 
+        params: TrainParams,    
+        class_mapping: dict,
+        run_id: int
+    ):
         """Execute the full training pipeline with a manual loop for frontend streaming."""
-        class_mapping = params.class_mapping
+        db = SessionLocal()
+        
+        try:
+            device = get_device(
+                device=params.device,
+                device_index=params.gpu_index
+            )
+            
+            # Load model
+            model = AudioClassifier(
+                num_classes=len(class_mapping),
+                backbone=params.backbone,
+                sample_rate=params.sampling_rate,
+                pretrained=params.pretrained,
+                freeze_backbone=params.freeze_backbone,
+            )
+            model.to(device)
 
-        device = get_device(device_index=params.gpu_index)
+            # Load training modules
+            optimizer = Adam(params=model.parameters(), lr=params.learning_rate)
+            scheduler = ReduceLROnPlateau(optimizer, "min")
+            loss_function = nn.CrossEntropyLoss()
 
-        model = AudioClassifier(
-            num_classes=len(class_mapping),
-            backbone=params.backbone,
-            sample_rate=params.sampling_rate,
-            pretrained=params.pretrained,
-            freeze_backbone=params.freeze_backbone,
-        )
-        model.to(device)
-
-        optimizer = Adam(params=model.parameters(), lr=params.learning_rate)
-        scheduler = ReduceLROnPlateau(optimizer, "min")
-        loss_function = nn.CrossEntropyLoss()
-
-        train_dataset = audio_classification_dataset_from_dir(
-            root_dir=params.training_data,
-            sample_rate=params.sampling_rate,
-            segment_duration=params.segment_duration,
-            class_mapping=class_mapping,
-        )
-
-        validation_dataset = None
-        if params.validation_data:
-            validation_dataset = audio_classification_dataset_from_dir(
-                root_dir=params.validation_data,
+            # Load data
+            train_dataset = audio_classification_dataset_from_dir(
+                root_dir=params.training_data,
                 sample_rate=params.sampling_rate,
                 segment_duration=params.segment_duration,
                 class_mapping=class_mapping,
             )
 
-        trainer = Trainer(
-            train_dset=train_dataset,
-            validation_dset=validation_dataset,
-            model=model,
-            optimizer=optimizer,
-            learning_rate=params.learning_rate,
-            lr_scheduler=scheduler,
-            loss_function=loss_function,
-            epochs=params.epochs,
-            patience=params.patience,
-            num_workers=params.workers,
-            batch_size=params.batch_size,
-            path_to_checkpoint=f"{params.checkpoint}.pt",
-            device_index=params.gpu_index,
-        )
+            validation_dataset = None
+            if params.validation_data:
+                validation_dataset = audio_classification_dataset_from_dir(
+                    root_dir=params.validation_data,
+                    sample_rate=params.sampling_rate,
+                    segment_duration=params.segment_duration,
+                    class_mapping=class_mapping,
+                )
 
-        self.logger.info("Starting manual training loop...")
+            # Initialize trainer
+            trainer = Trainer(
+                train_dset=train_dataset,
+                validation_dset=validation_dataset,
+                model=model,
+                optimizer=optimizer,
+                learning_rate=params.learning_rate,
+                lr_scheduler=scheduler,
+                loss_function=loss_function,
+                epochs=params.epochs,
+                patience=params.patience,
+                num_workers=params.workers,
+                batch_size=params.batch_size,
+                path_to_checkpoint=f"{params.checkpoint}.pt",
+                device_index=params.gpu_index,
+            )
 
-        # 1. Fire the "on_train_start" lifecycle hook
-        for cb in trainer.callbacks:
-            cb.on_train_start(trainer)
+            self.logger.info("Starting manual training loop...")
+            
+            # Fire the "on_train_start" lifecycle hook
+            for cb in trainer.callbacks:
+                cb.on_train_start(trainer)
 
-        # 2. The Manual Training Loop
-        for epoch in range(1, trainer.epochs + 1):
-            # Check for early stopping triggered in the previous epoch
-            if trainer.state.early_stop:
-                self.logger.info("Early stopping triggered. Halting training.")
-                break
+            # Perform training loop
+            try:
+                for epoch in range(1, trainer.epochs + 1):
+                    if trainer.state.early_stop:
+                        self.logger.info("Early stopping triggered. Halting training.")
+                        break
 
-            # Update the trainer's internal state
-            trainer.state.current_epoch = epoch
-            # epoch_step() automatically fires on_epoch_start and on_epoch_end
-            train_loss, val_loss = trainer.epoch_step()
-            self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+                    # Update the trainer's internal state
+                    trainer.state.current_epoch = epoch
+                    train_loss, val_loss = trainer.epoch_step()
 
-        # 3. Fire the "on_train_end" lifecycle hook
-        for cb in trainer.callbacks:
-            cb.on_train_end(trainer)
+                    # Save train and validation losses
+                    _ = self.register_losses(
+                        db=db,
+                        train_loss=train_loss,
+                        validation_loss=val_loss,
+                        epoch=epoch,
+                        run_id=run_id
+                    )
 
-        self.logger.info("Training process complete.")
+                    self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+            except Exception:
+                self.logger.exception("Training failed for run_id=%s", run_id)
+                raise
+            finally:
+                # Fire the "on_train_end" lifecycle hook
+                for cb in trainer.callbacks:
+                    cb.on_train_end(trainer)        
+        finally:
+            db.close()
+            self.logger.info("Training process complete.")
+
+

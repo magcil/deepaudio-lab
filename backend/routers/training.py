@@ -1,6 +1,7 @@
 # routers/training.py
 
 import torch
+import threading
 from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
@@ -16,13 +17,14 @@ router = APIRouter(prefix="/train", tags=["Training"])
 def train(params: TrainParams, db: Session = Depends(get_db)):
     """Launch an audio classification training task."""
     service = TrainingService()
+
     run, train_params, class_mapping = service.register_run(db, params)
 
-    # thread = threading.Thread(
-    #     target=service.perform_training,
-    #     args=(params, class_mapping)
-    # )
-    # thread.start()
+    thread = threading.Thread(
+        target=service.perform_training,
+        args=(params, class_mapping, run.id)
+    )
+    thread.start()
 
     return {
         "status": "started", 

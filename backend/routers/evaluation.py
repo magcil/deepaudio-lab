@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
-
+import threading
 from db.session import get_db
 from schemas.evaluation_params import EvaluationParams
 from services.evaluation_service import EvaluationService
@@ -28,13 +28,13 @@ def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
 
     # Perform evaluation
     service = EvaluationService()
-    run, evaluation_params, class_mapping = service.register_run(db, params)
+    run, _, _ = service.register_run(db, params)
 
-    # thread = threading.Thread(
-    #     target=service.perform_evaluation,
-    #     args=(params)
-    # )
-    # thread.start()
+    thread = threading.Thread(
+        target=service.perform_evaluation,
+        args=(params, run.id)
+    )
+    thread.start()
 
     print("Evaluation has started in a background thread!")
 

@@ -13,10 +13,14 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
+from models.classification_report import ClassificationReport
 from models.evaluation_params import EvaluationParams as EvaluationParamsModel
 from models.run import Run, TaskType
-from repositories import run_repository
+from repositories import run_repository, classification_report_repository
 from schemas.evaluation_params import EvaluationParams
+from db.session import SessionLocal
+from sklearn.metrics import classification_report
+
 
 
 @dataclass
@@ -96,53 +100,75 @@ class EvaluationService:
         return created_run, created_evaluation_params, class_mapping
     
 
-    def perform_evaluation(self, params: EvaluationParams):
+    def perform_evaluation(
+        self, 
+        params: EvaluationParams,
+        run_id: int
+    ):
         """Execute the full evaluation pipeline.
 
         Args:
             params (EvaluationParams): Evaluation configuration
+            run_id (int): ...
         """
-        self.device = get_device(device_index=params.gpu_index)
-        self.callbacks = [Reporter(logger=self.logger)]
+        db = SessionLocal()
+        try:
+            self.device = get_device(device_index=params.gpu_index)
+            self.callbacks = [Reporter(logger=self.logger)]
 
-        # Build model / Load from checkpoint (deepaudio-x >= v0.4.2)
-        self.model = AudioClassifier.from_checkpoint(params.model_checkpoint)
-        self.model.to(self.device)
-        self.model.eval()
+            # Build model / Load from checkpoint (deepaudio-x >= v0.4.2)
+            self.model = AudioClassifier.from_checkpoint(f"{params.model_checkpoint}.pt")
+            self.model.to(self.device)
+            self.model.eval()
 
-        # Load data
-        dataset = audio_classification_dataset_from_dir(
-            root_dir=params.evaluation_data,
-            sample_rate=params.sampling_rate,
-            segment_duration=params.segment_duration,
-            class_mapping=self.class_mapping,
-        )
+            # Load data
+            dataset = audio_classification_dataset_from_dir(
+                root_dir=params.evaluation_data,
+                sample_rate=params.sampling_rate,
+                segment_duration=params.segment_duration,
+                class_mapping=self.class_mapping,
+            )
 
-        dataloader = DataLoader(dataset, batch_size=params.batch_size, shuffle=False, num_workers=params.workers)
+            dataloader = DataLoader(dataset, batch_size=params.batch_size, shuffle=False, num_workers=params.workers)
 
-        # Perform evaluation
-        y_true_batches, y_pred_batches, posterior_batches = [], [], []
-        with torch.inference_mode(), tqdm(dataloader, unit="batch", leave=False, desc="Evaluation phase") as tbar:
-            for batch in tbar:
-                # Move inputs
-                x = batch["feature"].to(self.device)
-                y_true = batch["y_true"].cpu().numpy()
+            # Perform evaluation
+            y_true_batches, y_pred_batches, posterior_batches = [], [], []
+            try:
+                with torch.inference_mode(), tqdm(dataloader, unit="batch", leave=False, desc="Evaluation phase") as tbar:
+                    for batch in tbar:
+                        x = batch["feature"].to(self.device)
+                        y_true = batch["y_true"].cpu().numpy()
 
-                # Run model prediction
-                inference = self.model.predict(x)
-                y_pred = np.array(inference["y_preds"], dtype=int)
-                post = np.array(inference["posteriors"], dtype=float)
+                        inference = self.model.predict(x)
+                        y_pred = np.array(inference["y_preds"], dtype=int)
+                        post = np.array(inference["posteriors"], dtype=float)
 
-                # Update lists with new batch results
-                y_true_batches.append(y_true)
-                y_pred_batches.append(y_pred)
-                posterior_batches.append(post)
+                        y_true_batches.append(y_true)
+                        y_pred_batches.append(y_pred)
+                        posterior_batches.append(post)
+            except Exception:
+                self.logger.exception("Evaluation failed for run_id=%s", run_id)
+                raise
 
-        # Concatenate all results outside the loop
-        self.state.y_true = np.concatenate(y_true_batches)
-        self.state.y_pred = np.concatenate(y_pred_batches)
-        self.state.posteriors = np.concatenate(posterior_batches)
+            # Aggregate results
+            self.state.y_true = np.concatenate(y_true_batches)
+            self.state.y_pred = np.concatenate(y_pred_batches)
+            self.state.posteriors = np.concatenate(posterior_batches)
 
-        # Execute callbacks at the end of evaluation
-        for cb in self.callbacks:
-            cb.on_testing_end(self)
+            # Fire the on_testing_end lifecycle hook after state is populated
+            for cb in self.callbacks:
+                cb.on_testing_end(self)
+
+            report = classification_report(
+                y_true=self.state.y_true,
+                y_pred=self.state.y_pred,
+                output_dict=True,
+            )
+            classification_report_repository.create(
+                db=db,
+                report=ClassificationReport(run_id=run_id, report=report)
+            )
+        finally:
+            db.close()
+            self.logger.info("Evaluation process complete.")
+
