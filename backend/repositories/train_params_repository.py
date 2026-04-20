@@ -6,6 +6,23 @@ from models.train_params import TrainParams
 
 
 def create(db: Session, train_params: TrainParams) -> TrainParams:
+    """Persist a training-parameters row for an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        train_params (TrainParams): Training parameters to insert.
+            ``run_id`` must reference an existing run and at most one
+            ``TrainParams`` row may exist per run.
+
+    Raises:
+        DuplicateEntityError: Training parameters already exist for the
+            given ``run_id``.
+        RepositoryError: Any other SQLAlchemy error while inserting.
+
+    Returns:
+        TrainParams: The persisted row, refreshed with database-generated
+        values.
+    """
     try:
         db.add(train_params)
         db.commit()

@@ -12,6 +12,14 @@ class EntityNotFoundError(RepositoryError):
     """Raised when an entity is not found."""
 
     def __init__(self, entity: str, identifier: object | None = None):
+        """Build a not-found error for a missing database entity.
+
+        Args:
+            entity (str): Human-readable name of the entity type (e.g. ``"Run"``).
+            identifier (object | None, optional): Identifier used in the lookup
+                (primary key, name, etc.). When provided it is included in the
+                error message. Defaults to None.
+        """
         self.entity = entity
         self.identifier = identifier
         if identifier is not None:
@@ -23,6 +31,16 @@ class ReferencedEntityNotFoundError(AppError):
     """A referenced entity in the request body does not exist. Maps to 422."""
 
     def __init__(self, entity: str, identifier: object | None = None):
+        """Build an error for a request referencing a non-existent entity.
+
+        Used when a request payload points at a related row (typically via
+        a foreign key) that cannot be resolved.
+
+        Args:
+            entity (str): Human-readable name of the referenced entity type.
+            identifier (object | None, optional): Identifier that failed to
+                resolve. Defaults to None.
+        """
         self.entity = entity
         self.identifier = identifier
         super().__init__(f"Referenced {entity} '{identifier}' does not exist")
@@ -31,6 +49,14 @@ class DuplicateEntityError(RepositoryError):
     """Raised when a uniqueness constraint is violated."""
 
     def __init__(self, entity: str, identifier: object | None = None):
+        """Build an error for a uniqueness-constraint violation.
+
+        Args:
+            entity (str): Human-readable name of the entity type.
+            identifier (object | None, optional): Identifier of the conflicting
+                row (e.g. the unique name or key). When provided it is included
+                in the error message. Defaults to None.
+        """
         self.entity = entity
         self.identifier = identifier
         if identifier is not None:
@@ -42,6 +68,14 @@ class ResourceNotFoundError(AppError):
     """A non-database resource (file, external service, etc.) was not found."""
 
     def __init__(self, resource_type: str, identifier: object | None = None):
+        """Build an error for a missing external resource.
+
+        Args:
+            resource_type (str): Category of the resource (e.g. ``"dataset"``,
+                ``"checkpoint"``, ``"config file"``).
+            identifier (object | None, optional): Locator for the resource,
+                such as a filesystem path or URL. Defaults to None.
+        """
         self.resource_type = resource_type
         self.identifier = identifier
         if identifier is not None:
@@ -54,6 +88,17 @@ class InvalidResourceError(AppError):
     """A resource exists but is malformed or unreadable."""
 
     def __init__(self, resource_type: str, identifier: object | None = None, reason: str | None = None):
+        """Build an error for a resource that exists but cannot be used.
+
+        Args:
+            resource_type (str): Category of the resource (e.g. ``"config file"``,
+                ``"checkpoint"``).
+            identifier (object | None, optional): Locator for the resource,
+                such as a filesystem path or URL. Defaults to None.
+            reason (str | None, optional): Short explanation of why the
+                resource is invalid (parse failure, schema mismatch, …).
+                Appended to the error message when given. Defaults to None.
+        """
         self.resource_type = resource_type
         self.identifier = identifier
         self.reason = reason

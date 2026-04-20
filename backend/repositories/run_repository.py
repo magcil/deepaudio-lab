@@ -8,6 +8,19 @@ from models.train_params import TrainParams
 
 
 def create(db: Session, run: Run) -> Run:
+    """Persist a new run row.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run (Run): Run instance to insert. ``name`` must be unique.
+
+    Raises:
+        DuplicateEntityError: A run with the same ``name`` already exists.
+        RepositoryError: Any other SQLAlchemy error while inserting.
+
+    Returns:
+        Run: The persisted run, refreshed with database-generated values.
+    """
     try:
         db.add(run)
         db.commit()
@@ -23,6 +36,25 @@ def create(db: Session, run: Run) -> Run:
 def create_with_train_params(
     db: Session, run: Run, train_params: TrainParams
 ) -> tuple[Run, TrainParams]:
+    """Persist a run together with its training parameters atomically.
+
+    Both rows are inserted in the same transaction so neither is left
+    orphaned if the commit fails.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run (Run): Run instance to insert. ``name`` must be unique.
+        train_params (TrainParams): Training parameters associated with
+            the run.
+
+    Raises:
+        DuplicateEntityError: A run with the same ``name`` already exists.
+        RepositoryError: Any other SQLAlchemy error while inserting.
+
+    Returns:
+        tuple[Run, TrainParams]: The persisted run and training
+        parameters, refreshed with database-generated values.
+    """
     try:
         db.add(run)
         db.add(train_params)
@@ -38,10 +70,29 @@ def create_with_train_params(
         raise RepositoryError("Failed to create run with train params") from e
     
 def create_with_evaluation_params(
-    db: Session, 
-    run: Run, 
+    db: Session,
+    run: Run,
     evaluation_params: EvaluationParams
 ) -> tuple[Run, EvaluationParams]:
+    """Persist a run together with its evaluation parameters atomically.
+
+    Both rows are inserted in the same transaction so neither is left
+    orphaned if the commit fails.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run (Run): Run instance to insert. ``name`` must be unique.
+        evaluation_params (EvaluationParams): Evaluation parameters
+            associated with the run.
+
+    Raises:
+        DuplicateEntityError: A run with the same ``name`` already exists.
+        RepositoryError: Any other SQLAlchemy error while inserting.
+
+    Returns:
+        tuple[Run, EvaluationParams]: The persisted run and evaluation
+        parameters, refreshed with database-generated values.
+    """
     try:
         db.add(run)
         db.add(evaluation_params)
@@ -58,13 +109,37 @@ def create_with_evaluation_params(
 
 
 def get_by_id(db: Session, id: int) -> Run | None:
+    """Look up a run by its primary key.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        id (int): Primary key of the run.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while querying.
+
+    Returns:
+        Run | None: The matching run, or ``None`` if no row matches.
+    """
     try:
         return db.query(Run).filter(Run.id == id)
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by ID '{id}'") from e
-    
-    
+
+
 def get_by_name(db: Session, name: str) -> Run | None:
+    """Look up a run by its unique name.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        name (str): Unique name of the run.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while querying.
+
+    Returns:
+        Run | None: The matching run, or ``None`` if no row matches.
+    """
     try:
         return db.query(Run).filter(Run.name == name).first()
     except SQLAlchemyError as e:

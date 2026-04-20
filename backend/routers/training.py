@@ -16,7 +16,22 @@ router = APIRouter(prefix="/train", tags=["Training"])
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
 def train(params: TrainParams, db: Session = Depends(get_db)):
-    """Launch an audio classification training task."""
+    """Start a training run asynchronously.
+
+    Registers the run and its training parameters in the database, then
+    kicks off the actual training loop on a background thread so the
+    request returns immediately with ``202 Accepted``.
+
+    Args:
+        params (TrainParams): Training configuration submitted by the
+            client (model/backbone choice, dataset, hyperparameters, …).
+        db (Session, optional): SQLAlchemy session injected by FastAPI
+            via the ``get_db`` dependency.
+
+    Returns:
+        dict: Acknowledgement payload with the run status, the assigned
+        run name, and the persisted training parameters.
+    """
     service = TrainingService()
 
     run, train_params, class_mapping = service.register_run(db, params)

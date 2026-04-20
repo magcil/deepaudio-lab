@@ -31,7 +31,6 @@ class EvaluationState:
         y_pred (np.ndarray): A NumPy array of predicted labels.
         posteriors (np.ndarray): A NumPy array of posterior probabilities.
     """
-
     y_true: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
     y_pred: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
     posteriors: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
@@ -54,7 +53,31 @@ class EvaluationService:
     def register_run(
         self, db: Session, params: EvaluationParams
     ) -> tuple[Run, EvaluationParams, dict]:
-        # --- Validate external resources ---
+        """Validate inputs and persist a new evaluation run.
+
+        Loads and parses the class-mapping file, resolves the optional
+        parent run by name, then writes the ``Run`` and its
+        ``EvaluationParams`` row atomically. The parsed class mapping is
+        cached on ``self`` so later calls to :meth:`perform_evaluation`
+        reuse it.
+
+        Args:
+            db (Session): Active SQLAlchemy session.
+            params (EvaluationParams): Evaluation configuration submitted
+                by the client.
+
+        Raises:
+            ResourceNotFoundError: The class-mapping file does not exist.
+            InvalidResourceError: The class-mapping file exists but could
+                not be parsed as JSON.
+            ReferencedEntityNotFoundError: ``params.parent_run_name`` is
+                set but no run with that name exists.
+
+        Returns:
+            tuple[Run, EvaluationParams, dict]: The persisted run, the
+            persisted evaluation-params row, and the loaded class mapping.
+        """
+        # Validate external resources
         try:
             with open(params.class_mapping) as f:
                 class_mapping = json.load(f)
@@ -67,7 +90,7 @@ class EvaluationService:
         
         self.class_mapping = class_mapping
 
-        # --- Validate referenced entities ---
+        # Validate referenced entities
         parent_run_id = None
         if params.parent_run_name is not None:
             parent = run_repository.get_by_name(db, params.parent_run_name)
@@ -75,7 +98,7 @@ class EvaluationService:
                 raise ReferencedEntityNotFoundError("Run", params.parent_run_name)
             parent_run_id = parent.id
 
-        # --- Build entities ---
+        # Build entities
         run = Run(
             name=params.name,
             description=params.description,
@@ -89,7 +112,7 @@ class EvaluationService:
             path_to_checkpoint=params.model_checkpoint,
             class_mapping=class_mapping,
         )
-        # --- Single transaction: both rows commit together or neither does ---
+        # Single transaction: both rows commit together or neither does
         created_run, created_evaluation_params = run_repository.create_with_evaluation_params(
             db=db,
             run=run,
@@ -100,15 +123,24 @@ class EvaluationService:
     
 
     def perform_evaluation(
-        self, 
+        self,
         params: EvaluationParams,
         run_id: int
     ):
-        """Execute the full evaluation pipeline.
+        """Execute the full evaluation pipeline and persist the report.
+
+        Loads the checkpoint, runs inference in batches over the
+        evaluation dataset, fires the ``on_testing_end`` callback hook,
+        computes a sklearn classification report, and stores it against
+        the given run. Opens its own session because this is typically
+        invoked on a background thread after the original request has
+        returned.
 
         Args:
-            params (EvaluationParams): Evaluation configuration
-            run_id (int): ...
+            params (EvaluationParams): Evaluation configuration (paths,
+                sampling rate, batch size, worker count, GPU index, …).
+            run_id (int): Primary key of the run this evaluation belongs
+                to. Used to attach the classification report.
         """
         db = SessionLocal()
         try:

@@ -19,15 +19,40 @@ from schemas.train_params import TrainParams
 
 
 class TrainingService:
+    """Orchestrates the full audio classification training pipeline."""
+
     def __init__(self):
+        """Initialize the training service with a module-level logger."""
         self.logger = logging.getLogger(__name__)
 
     def register_run(
-        self, 
-        db: Session, 
+        self,
+        db: Session,
         params: TrainParams
     ) -> tuple[Run, TrainParamsModel, dict]:
-        # --- Validate external resources ---
+        """Validate inputs and persist a new training run.
+
+        Loads and parses the class-mapping file, resolves the optional
+        parent run by name, then writes the ``Run`` and its
+        ``TrainParams`` row atomically.
+
+        Args:
+            db (Session): Active SQLAlchemy session.
+            params (TrainParams): Training configuration submitted by the
+                client.
+
+        Raises:
+            ResourceNotFoundError: The class-mapping file does not exist.
+            InvalidResourceError: The class-mapping file exists but could
+                not be parsed as JSON.
+            ReferencedEntityNotFoundError: ``params.parent_run_name`` is
+                set but no run with that name exists.
+
+        Returns:
+            tuple[Run, TrainParamsModel, dict]: The persisted run, the
+            persisted training-params row, and the loaded class mapping.
+        """
+        # Validate external resources
         try:
             with open(params.class_mapping) as f:
                 class_mapping = json.load(f)
@@ -38,7 +63,7 @@ class TrainingService:
                 "ClassMapping", params.class_mapping, reason=str(e)
             ) from e
 
-        # --- Validate referenced entities ---
+        # Validate referenced entities
         parent_run_id = None
         if params.parent_run_name is not None:
             parent = run_repository.get_by_name(db, params.parent_run_name)
@@ -46,7 +71,7 @@ class TrainingService:
                 raise ReferencedEntityNotFoundError("Run", params.parent_run_name)
             parent_run_id = parent.id
 
-        # --- Build entities ---
+        # Build entities
         run = Run(
             name=params.name,
             description=params.description,
@@ -76,7 +101,7 @@ class TrainingService:
             gpu_index=params.gpu_index,
         )
 
-        # --- Single transaction: both rows commit together or neither does ---
+        # Single transaction: both rows commit together or neither does
         created_run, created_train_params = run_repository.create_with_train_params(
             db=db,
             run=run,
@@ -86,13 +111,29 @@ class TrainingService:
         return created_run, created_train_params, class_mapping
     
     def register_losses(
-        self, 
-        db: Session, 
-        train_loss: float, 
+        self,
+        db: Session,
+        train_loss: float,
         validation_loss: float,
-        epoch: int, 
+        epoch: int,
         run_id: int
     ):
+        """Persist the train and validation loss for one epoch.
+
+        Builds a ``Loss`` row for each split and commits both in a
+        single batch so the epoch's metrics are stored atomically.
+
+        Args:
+            db (Session): Active SQLAlchemy session.
+            train_loss (float): Training loss for the epoch.
+            validation_loss (float): Validation loss for the epoch.
+            epoch (int): One-based epoch index.
+            run_id (int): Primary key of the run these losses belong to.
+
+        Returns:
+            list[Loss]: The two persisted loss rows (train then
+            validation), refreshed with database-generated values.
+        """
         # Save loss
         train_loss_object = Loss(
             run_id = run_id,
@@ -119,12 +160,29 @@ class TrainingService:
         return saved_loss
 
     def perform_training(
-        self, 
-        params: TrainParams,    
+        self,
+        params: TrainParams,
         class_mapping: dict,
         run_id: int
     ):
-        """Execute the full training pipeline with a manual loop for frontend streaming."""
+        """Execute the full training loop and persist per-epoch losses.
+
+        Builds the model, optimizer, scheduler, datasets, and
+        ``Trainer``, then drives the manual epoch loop. Each epoch's
+        train and validation losses are persisted via
+        :meth:`register_losses`. The ``on_train_start`` / ``on_train_end``
+        callbacks are fired around the loop, and early stopping is
+        honoured. Opens its own session because this is typically
+        invoked on a background thread after the original request has
+        returned.
+
+        Args:
+            params (TrainParams): Training configuration (hyperparameters,
+                dataset paths, device selection, …).
+            class_mapping (dict): Mapping from class name to integer
+                label, used to build the datasets.
+            run_id (int): Primary key of the run these losses belong to.
+        """
         db = SessionLocal()
         
         try:
