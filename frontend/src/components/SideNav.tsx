@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './SideNav.css'
 
-type Page = 'training' | 'evaluation' | 'homepage'
+type Page = 'training' | 'evaluation' | 'homepage' | 'experiment'
 
 
 interface SideNavProps {

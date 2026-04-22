@@ -1,17 +1,54 @@
-export default function Home
-() {
+import './Homepage.css'
+
+const experiments = [
+  {
+    id: 1,
+    name: "Baseline CNN – UrbanSound8K",
+    description: "Initial convolutional baseline trained on UrbanSound8K with mel-spectrogram inputs.",
+    hasTraining: true,
+    hasEvaluation: false,
+  },
+  {
+    id: 2,
+    name: "ResNet50 + Attention – ESC-50",
+    description: "ResNet50 backbone with a self-attention pooling head evaluated on the ESC-50 dataset.",
+    hasTraining: true,
+    hasEvaluation: true,
+  },
+  {
+    id: 3,
+    name: "EfficientNet – DCASE 2023",
+    description: "Lightweight EfficientNet variant fine-tuned for acoustic scene classification on DCASE 2023.",
+    hasTraining: false,
+    hasEvaluation: true,
+  },
+]
+
+interface Props {
+  onSelectExperiment: (id: number) => void
+}
+
+export default function Home({ onSelectExperiment }: Props) {
   return (
     <div className="page-content">
       <p className="eyebrow">Deep Audio Lab</p>
       <h1 className="page-title">Welcome</h1>
-      {/* <p className="page-summary">
-        Benchmark trained models against test sets. Compare metrics, listen to sample outputs, and
-        export evaluation reports.
-      </p>
-      <div className="placeholder-card">
-        <h2>No evaluations yet</h2>
-        <p>Select a trained checkpoint to begin an evaluation run.</p>
-      </div> */}
+
+      <section className="experiments-section">
+        <h2 className="section-heading">Experiments</h2>
+        <div className="experiment-grid">
+          {experiments.map((exp) => (
+            <div key={exp.id} className="experiment-card" onClick={() => onSelectExperiment(exp.id)}>
+              <h3 className="experiment-card__name">{exp.name}</h3>
+              <p className="experiment-card__description">{exp.description}</p>
+              <div className="experiment-card__pills">
+                {exp.hasTraining && <span className="pill pill--training">Training</span>}
+                {exp.hasEvaluation && <span className="pill pill--evaluation">Evaluation</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
