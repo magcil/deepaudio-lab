@@ -92,3 +92,39 @@
   color: #9a75ea;
   border: 1px solid rgba(154, 117, 234, 0.25);
 }
+
+.loss-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.loss-chart {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 20px 16px 28px;
+}
+
+.loss-chart__title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #c7d4e7;
+  letter-spacing: 0.02em;
+}
+
+.json-block {
+  margin: 0;
+  padding: 20px 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e5ecf6;
+  max-height: 400px;
+  overflow: auto;
+  white-space: pre;
+}

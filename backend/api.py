@@ -4,13 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
-from routers import evaluation, training
+from routers import evaluation, run, training
 
 from models import (
     classification_report,
     evaluation_params,
     loss,
-    run,
+    run as run_model,
     train_params
 )
 
@@ -32,6 +32,7 @@ app.add_middleware(
 # Add routers
 app.include_router(training.router)
 app.include_router(evaluation.router)
+app.include_router(run.router)
 
 
 # Check status point

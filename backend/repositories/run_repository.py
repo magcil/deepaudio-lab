@@ -122,9 +122,27 @@ def get_by_id(db: Session, id: int) -> Run | None:
         Run | None: The matching run, or ``None`` if no row matches.
     """
     try:
-        return db.query(Run).filter(Run.id == id)
+        return db.query(Run).filter(Run.id == id).first()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by ID '{id}'") from e
+
+
+def get_all(db: Session) -> list[Run]:
+    """Retrieve all runs.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while querying.
+
+    Returns:
+        list[Run]: All persisted runs, or an empty list if none exist.
+    """
+    try:
+        return db.query(Run).all()
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch all runs") from e
 
 
 def get_by_name(db: Session, name: str) -> Run | None:
