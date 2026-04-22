@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from db.session import Base
 
 
-class SplitType(str, enum.StrEnum):
+class SplitType(str, enum.Enum):
     """Dataset split a loss value was computed on.
 
     Inherits from both `str` and `enum.StrEnum` so that

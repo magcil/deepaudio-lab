@@ -7,7 +7,7 @@ from sqlalchemy.sql import func
 from db.session import Base
 
 
-class TaskType(str, enum.StrEnum):
+class TaskType(str, enum.Enum):
     """Kind of task work a run represents.
 
     Inherits from both `str` and `enum.StrEnum` so that
