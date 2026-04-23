@@ -6,14 +6,6 @@ from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
 from routers import evaluation, run, training
 
-from models import (
-    classification_report,
-    evaluation_params,
-    loss,
-    run as run_model,
-    train_params
-)
-
 # Instantiate api
 app = FastAPI()
 register_exception_handlers(app)

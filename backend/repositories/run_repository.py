@@ -33,9 +33,8 @@ def create(db: Session, run: Run) -> Run:
         db.rollback()
         raise RepositoryError("Failed to create run") from e
 
-def create_with_train_params(
-    db: Session, run: Run, train_params: TrainParams
-) -> tuple[Run, TrainParams]:
+
+def create_with_train_params(db: Session, run: Run, train_params: TrainParams) -> tuple[Run, TrainParams]:
     """Persist a run together with its training parameters atomically.
 
     Both rows are inserted in the same transaction so neither is left
@@ -68,11 +67,10 @@ def create_with_train_params(
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError("Failed to create run with train params") from e
-    
+
+
 def create_with_evaluation_params(
-    db: Session,
-    run: Run,
-    evaluation_params: EvaluationParams
+    db: Session, run: Run, evaluation_params: EvaluationParams
 ) -> tuple[Run, EvaluationParams]:
     """Persist a run together with its evaluation parameters atomically.
 

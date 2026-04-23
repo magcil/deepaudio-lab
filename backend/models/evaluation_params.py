@@ -20,6 +20,7 @@ class EvaluationParams(Base):
             human-readable class names, used to interpret model predictions.
         run (Run): The parent run these parameters belong to.
     """
+
     __tablename__ = "evaluation_params"
     id = Column(Integer, primary_key=True, index=True)
     run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, unique=True)
@@ -29,7 +30,7 @@ class EvaluationParams(Base):
 
     # Define relationships
     run = relationship(
-        "Run", 
+        "Run",
         back_populates="evaluation_params",
         foreign_keys=[run_id],
     )

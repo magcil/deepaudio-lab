@@ -23,6 +23,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     Args:
         app (FastAPI): The FastAPI application to attach handlers to.
     """
+
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError):
         """Handle FastAPI/Pydantic request validation errors.

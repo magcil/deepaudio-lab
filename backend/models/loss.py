@@ -17,8 +17,10 @@ class SplitType(str, enum.Enum):
         train: Loss computed on the training split.
         validation: Loss computed on the validation split.
     """
+
     train = "train"
     validation = "validation"
+
 
 class Loss(Base):
     """Database model for a single loss value recorded during training or validation.
@@ -49,6 +51,7 @@ class Loss(Base):
         run (Run): The parent run this loss belongs to. Back-populated
             from ``Run.losses``.
     """
+
     __tablename__ = "loss"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -57,13 +60,7 @@ class Loss(Base):
     split_type = Column(Enum(SplitType, native_enum=False), nullable=False)
 
     # Define relationships
-    run = relationship(
-        "Run", 
-        back_populates="losses",
-        foreign_keys=[run_id]
-    )
+    run = relationship("Run", back_populates="losses", foreign_keys=[run_id])
 
     # Apply uniqueness constraint
-    __table_args__ = (
-        UniqueConstraint("run_id", "epoch", "split_type", name="uq_loss_run_epoch_split"),
-    )
+    __table_args__ = (UniqueConstraint("run_id", "epoch", "split_type", name="uq_loss_run_epoch_split"),)

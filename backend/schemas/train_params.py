@@ -61,7 +61,7 @@ class TrainParams(BaseModel):
     gpu_index: int | None = Field(default=0, ge=0)
     device: str = Field(default="cpu")
     class_mapping: str
-    name: str = Field(min_length=1)
+    experiment_name: str = Field(min_length=1)
     description: str | None = Field(default=None)
     parent_run_name: str | None = Field(default=None)
 
@@ -76,9 +76,7 @@ class TrainParams(BaseModel):
     @classmethod
     def validate_device(cls, v: str) -> str:
         if v not in VALID_DEVICES:
-            raise ValueError(
-                f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}"
-            )
+            raise ValueError(f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}")
         return v
 
     @field_validator("gpu_index", mode="before")
@@ -92,18 +90,14 @@ class TrainParams(BaseModel):
     @classmethod
     def validate_backbone(cls, v: str) -> str:
         if v not in VALID_BACKBONES:
-            raise ValueError(
-                f"Invalid backbone '{v}'. Must be one of: {sorted(VALID_BACKBONES)}"
-            )
+            raise ValueError(f"Invalid backbone '{v}'. Must be one of: {sorted(VALID_BACKBONES)}")
         return v
 
     @field_validator("pooling")
     @classmethod
     def validate_pooling(cls, v: str) -> str:
         if v not in VALID_POOLINGS:
-            raise ValueError(
-                f"Invalid pooling '{v}'. Must be one of: {sorted(VALID_POOLINGS)}"
-            )
+            raise ValueError(f"Invalid pooling '{v}'. Must be one of: {sorted(VALID_POOLINGS)}")
         return v
 
 

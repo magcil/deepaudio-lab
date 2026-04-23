@@ -1,4 +1,3 @@
-
 from deepaudiox.modules.pooling import POOLING
 from deepaudiox.schemas.types import BackboneName
 from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String
@@ -9,6 +8,7 @@ from db.session import Base
 # Dynamically built enum of supported by backbone and pooling names, sourced from DeepAudioX
 VALID_BACKBONES: frozenset[str] = frozenset(BackboneName.__args__)
 VALID_POOLINGS: frozenset[str] = frozenset(POOLING.keys())
+
 
 class TrainParams(Base):
     """Database model for the parameters required for training.
@@ -68,6 +68,7 @@ class TrainParams(Base):
         run (Run): The parent run these parameters belong to.
             Back-populated from ``Run.train_params``.
     """
+
     __tablename__ = "train_params"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -105,17 +106,11 @@ class TrainParams(Base):
     @validates("backbone")
     def _validate_backbone(self, key: str, value: str) -> str:
         if value not in VALID_BACKBONES:
-            raise ValueError(
-                f"Invalid backbone '{value}'. "
-                f"Must be one of: {sorted(VALID_BACKBONES)}"
-            )
+            raise ValueError(f"Invalid backbone '{value}'. Must be one of: {sorted(VALID_BACKBONES)}")
         return value
 
     @validates("pooling")
     def _validate_pooling(self, key: str, value: str) -> str:
         if value not in VALID_POOLINGS:
-            raise ValueError(
-                f"Invalid pooling '{value}'. "
-                f"Must be one of: {sorted(VALID_POOLINGS)}"
-            )
+            raise ValueError(f"Invalid pooling '{value}'. Must be one of: {sorted(VALID_POOLINGS)}")
         return value

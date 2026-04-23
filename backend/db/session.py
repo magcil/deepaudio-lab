@@ -21,6 +21,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False} if is_sqlite else {},
 )
 
+
 @event.listens_for(Engine, "connect")
 def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
     """Enable foreign key enforcement on new SQLite connections.
@@ -32,7 +33,7 @@ def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
 
     Args:
         dbapi_connection: The raw DB-API connection object that
-            SQLAlchemy has just opened. 
+            SQLAlchemy has just opened.
         connection_record: SQLAlchemy's internal bookkeeping object
             for the connection in the pool; Required by the event signature.
     """
@@ -44,6 +45,7 @@ def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
+
 
 def get_db():
     """Yield a database session for the duration of a single request.

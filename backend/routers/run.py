@@ -72,11 +72,7 @@ def get_run(run_id: int, db: Session = Depends(get_db)):
             }
             for loss in run.losses
         ],
-        "classification_report": (
-            run.classification_report.report
-            if run.classification_report
-            else None
-        ),
+        "classification_report": (run.classification_report.report if run.classification_report else None),
     }
 
     if run.train_params:
@@ -111,4 +107,3 @@ def get_run(run_id: int, db: Session = Depends(get_db)):
         }
 
     return result
-

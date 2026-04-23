@@ -1,10 +1,12 @@
 class AppError(Exception):
     """Base class for all application exceptions."""
+
     pass
 
 
 class RepositoryError(AppError):
     """Generic repository / database error."""
+
     pass
 
 
@@ -27,6 +29,7 @@ class EntityNotFoundError(RepositoryError):
         else:
             super().__init__(f"{entity} not found")
 
+
 class ReferencedEntityNotFoundError(AppError):
     """A referenced entity in the request body does not exist. Maps to 422."""
 
@@ -44,6 +47,7 @@ class ReferencedEntityNotFoundError(AppError):
         self.entity = entity
         self.identifier = identifier
         super().__init__(f"Referenced {entity} '{identifier}' does not exist")
+
 
 class DuplicateEntityError(RepositoryError):
     """Raised when a uniqueness constraint is violated."""
@@ -63,6 +67,7 @@ class DuplicateEntityError(RepositoryError):
             super().__init__(f"{entity} '{identifier}' already exists")
         else:
             super().__init__(f"{entity} already exists")
+
 
 class ResourceNotFoundError(AppError):
     """A non-database resource (file, external service, etc.) was not found."""

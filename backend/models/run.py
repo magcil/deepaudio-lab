@@ -11,7 +11,7 @@ class TaskType(str, enum.Enum):
     """Kind of task work a run represents.
 
     Inherits from both `str` and `enum.StrEnum` so that
-    members behave as plain strings, while still providing 
+    members behave as plain strings, while still providing
     the type safety and validation of a Python enum.
 
     Attributes:
@@ -19,15 +19,17 @@ class TaskType(str, enum.Enum):
         evaluation: An evaluation run that loads a checkpoint and
             computes metrics on a test set.
     """
+
     train = "train"
     evaluation = "evaluation"
+
 
 class Run(Base):
     """Database model for a single training or evaluation run.
 
     Acts as the central record for an experiment. Both training and
-    evaluation runs live in this table, distinguished by`task_type`. 
-    Each run owns its own configuration (`TrainParams` or `EvaluationParams`) 
+    evaluation runs live in this table, distinguished by`task_type`.
+    Each run owns its own configuration (`TrainParams` or `EvaluationParams`)
     and any artifacts produced during execution (loss history, classification report).
 
     Runs may be linked to one another via `parent_run_id`, which
@@ -74,45 +76,26 @@ class Run(Base):
             checkpoint). Not cascaded on delete; children survive their
             parent and have their ``parent_run_id`` set to ``NULL``.
     """
+
     __tablename__ = "run"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String)
     task_type = Column(Enum(TaskType, native_enum=False), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    parent_run_id = Column(
-        Integer,
-        ForeignKey("run.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
-    )
+    parent_run_id = Column(Integer, ForeignKey("run.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Define relationships
-    train_params = relationship(
-        "TrainParams", 
-        back_populates="run", 
-        cascade="all, delete-orphan",
-        uselist=False
-    )
+    train_params = relationship("TrainParams", back_populates="run", cascade="all, delete-orphan", uselist=False)
 
     evaluation_params = relationship(
-        "EvaluationParams", 
-        back_populates="run", 
-        cascade="all, delete-orphan",
-        uselist=False
+        "EvaluationParams", back_populates="run", cascade="all, delete-orphan", uselist=False
     )
 
-    losses = relationship(
-        "Loss", 
-        back_populates="run", 
-        cascade="all, delete-orphan"
-    )
+    losses = relationship("Loss", back_populates="run", cascade="all, delete-orphan")
 
     classification_report = relationship(
-        "ClassificationReport", 
-        back_populates="run", 
-        cascade="all, delete-orphan",
-        uselist=False
+        "ClassificationReport", back_populates="run", cascade="all, delete-orphan", uselist=False
     )
 
     parent_run = relationship(
@@ -123,8 +106,5 @@ class Run(Base):
     )
 
     child_runs = relationship(
-        "Run",
-        back_populates="parent_run",
-        foreign_keys=[parent_run_id],
-        cascade="save-update, merge"
+        "Run", back_populates="parent_run", foreign_keys=[parent_run_id], cascade="save-update, merge"
     )

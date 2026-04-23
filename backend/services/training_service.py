@@ -25,11 +25,7 @@ class TrainingService:
         """Initialize the training service with a module-level logger."""
         self.logger = logging.getLogger(__name__)
 
-    def register_run(
-        self,
-        db: Session,
-        params: TrainParams
-    ) -> tuple[Run, TrainParamsModel, dict]:
+    def register_run(self, db: Session, params: TrainParams) -> tuple[Run, TrainParamsModel, dict]:
         """Validate inputs and persist a new training run.
 
         Loads and parses the class-mapping file, resolves the optional
@@ -59,9 +55,7 @@ class TrainingService:
         except FileNotFoundError as e:
             raise ResourceNotFoundError("ClassMapping", params.class_mapping) from e
         except json.JSONDecodeError as e:
-            raise InvalidResourceError(
-                "ClassMapping", params.class_mapping, reason=str(e)
-            ) from e
+            raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
 
         # Validate referenced entities
         parent_run_id = None
@@ -73,7 +67,7 @@ class TrainingService:
 
         # Build entities
         run = Run(
-            name=params.name,
+            name=params.experiment_name,
             description=params.description,
             task_type=TaskType.train,
             parent_run_id=parent_run_id,
@@ -103,21 +97,12 @@ class TrainingService:
 
         # Single transaction: both rows commit together or neither does
         created_run, created_train_params = run_repository.create_with_train_params(
-            db=db,
-            run=run,
-            train_params=train_params
+            db=db, run=run, train_params=train_params
         )
 
         return created_run, created_train_params, class_mapping
-    
-    def register_losses(
-        self,
-        db: Session,
-        train_loss: float,
-        validation_loss: float,
-        epoch: int,
-        run_id: int
-    ):
+
+    def register_losses(self, db: Session, train_loss: float, validation_loss: float, epoch: int, run_id: int):
         """Persist the train and validation loss for one epoch.
 
         Builds a ``Loss`` row for each split and commits both in a
@@ -135,36 +120,15 @@ class TrainingService:
             validation), refreshed with database-generated values.
         """
         # Save loss
-        train_loss_object = Loss(
-            run_id = run_id,
-            epoch = epoch,
-            loss = train_loss,
-            split_type = "train"
-        )
+        train_loss_object = Loss(run_id=run_id, epoch=epoch, loss=train_loss, split_type="train")
 
-        validation_loss_object = Loss(
-            run_id = run_id,
-            epoch = epoch,
-            loss = validation_loss,
-            split_type = "validation"
-        )
+        validation_loss_object = Loss(run_id=run_id, epoch=epoch, loss=validation_loss, split_type="validation")
 
-        saved_loss = loss_repository.create_many(
-            db = db,
-            losses = [
-                train_loss_object,
-                validation_loss_object
-            ]
-        )
+        saved_loss = loss_repository.create_many(db=db, losses=[train_loss_object, validation_loss_object])
 
         return saved_loss
 
-    def perform_training(
-        self,
-        params: TrainParams,
-        class_mapping: dict,
-        run_id: int
-    ):
+    def perform_training(self, params: TrainParams, class_mapping: dict, run_id: int):
         """Execute the full training loop and persist per-epoch losses.
 
         Builds the model, optimizer, scheduler, datasets, and
@@ -184,13 +148,10 @@ class TrainingService:
             run_id (int): Primary key of the run these losses belong to.
         """
         db = SessionLocal()
-        
+
         try:
-            device = get_device(
-                device=params.device,
-                device_index=params.gpu_index
-            )
-            
+            device = get_device(device=params.device, device_index=params.gpu_index)
+
             # Load model
             model = AudioClassifier(
                 num_classes=len(class_mapping),
@@ -241,7 +202,7 @@ class TrainingService:
             )
 
             self.logger.info("Starting manual training loop...")
-            
+
             # Fire the "on_train_start" lifecycle hook
             for cb in trainer.callbacks:
                 cb.on_train_start(trainer)
@@ -259,11 +220,7 @@ class TrainingService:
 
                     # Save train and validation losses
                     _ = self.register_losses(
-                        db=db,
-                        train_loss=train_loss,
-                        validation_loss=val_loss,
-                        epoch=epoch,
-                        run_id=run_id
+                        db=db, train_loss=train_loss, validation_loss=val_loss, epoch=epoch, run_id=run_id
                     )
 
                     self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
@@ -273,9 +230,7 @@ class TrainingService:
             finally:
                 # Fire the "on_train_end" lifecycle hook
                 for cb in trainer.callbacks:
-                    cb.on_train_end(trainer)        
+                    cb.on_train_end(trainer)
         finally:
             db.close()
             self.logger.info("Training process complete.")
-
-

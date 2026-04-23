@@ -1,4 +1,3 @@
-
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -44,7 +43,8 @@ def create(db: Session, loss: Loss) -> Loss:
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError("Failed to create loss") from e
-    
+
+
 def create_many(db: Session, losses: list[Loss]) -> list[Loss]:
     """Persist a batch of loss records in a single transaction.
 

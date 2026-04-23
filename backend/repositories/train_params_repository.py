@@ -30,9 +30,7 @@ def create(db: Session, train_params: TrainParams) -> TrainParams:
         return train_params
     except IntegrityError as e:
         db.rollback()
-        raise DuplicateEntityError(
-            "TrainParams", f"run_id={train_params.run_id}"
-        ) from e
+        raise DuplicateEntityError("TrainParams", f"run_id={train_params.run_id}") from e
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError("Failed to create train params") from e

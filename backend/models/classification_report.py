@@ -15,6 +15,7 @@ class ClassificationReport(Base):
         report (dict): The full classification report as a JSON object.
         run (Run): The parent run this report belongs to.
     """
+
     __tablename__ = "classification_report"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, unique=True)
@@ -22,7 +23,7 @@ class ClassificationReport(Base):
 
     # Define relationships
     run = relationship(
-        "Run", 
+        "Run",
         back_populates="classification_report",
         foreign_keys=[run_id],
     )

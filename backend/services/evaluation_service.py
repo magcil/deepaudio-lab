@@ -31,6 +31,7 @@ class EvaluationState:
         y_pred (np.ndarray): A NumPy array of predicted labels.
         posteriors (np.ndarray): A NumPy array of posterior probabilities.
     """
+
     y_true: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
     y_pred: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
     posteriors: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
@@ -50,9 +51,7 @@ class EvaluationService:
         logging.basicConfig(level=logging.INFO, format="%(message)s")
         self.logger = logging.getLogger("ConsoleLogger")
 
-    def register_run(
-        self, db: Session, params: EvaluationParams
-    ) -> tuple[Run, EvaluationParams, dict]:
+    def register_run(self, db: Session, params: EvaluationParams) -> tuple[Run, EvaluationParams, dict]:
         """Validate inputs and persist a new evaluation run.
 
         Loads and parses the class-mapping file, resolves the optional
@@ -84,10 +83,8 @@ class EvaluationService:
         except FileNotFoundError as e:
             raise ResourceNotFoundError("ClassMapping", params.class_mapping) from e
         except json.JSONDecodeError as e:
-            raise InvalidResourceError(
-                "ClassMapping", params.class_mapping, reason=str(e)
-            ) from e
-        
+            raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
+
         self.class_mapping = class_mapping
 
         # Validate referenced entities
@@ -100,33 +97,26 @@ class EvaluationService:
 
         # Build entities
         run = Run(
-            name=params.name,
+            name=params.experiment_name,
             description=params.description,
             task_type=TaskType.evaluation,
             parent_run_id=parent_run_id,
         )
 
         evaluation_params = EvaluationParamsModel(
-            run=run, 
+            run=run,
             path_to_test=params.evaluation_data,
             path_to_checkpoint=params.model_checkpoint,
             class_mapping=class_mapping,
         )
         # Single transaction: both rows commit together or neither does
         created_run, created_evaluation_params = run_repository.create_with_evaluation_params(
-            db=db,
-            run=run,
-            evaluation_params=evaluation_params
+            db=db, run=run, evaluation_params=evaluation_params
         )
 
         return created_run, created_evaluation_params, class_mapping
-    
 
-    def perform_evaluation(
-        self,
-        params: EvaluationParams,
-        run_id: int
-    ):
+    def perform_evaluation(self, params: EvaluationParams, run_id: int):
         """Execute the full evaluation pipeline and persist the report.
 
         Loads the checkpoint, runs inference in batches over the
@@ -165,9 +155,10 @@ class EvaluationService:
             # Perform evaluation
             y_true_batches, y_pred_batches, posterior_batches = [], [], []
             try:
-                with torch.inference_mode(), tqdm(
-                    dataloader, unit="batch", leave=False, desc="Evaluation phase"
-                ) as tbar:
+                with (
+                    torch.inference_mode(),
+                    tqdm(dataloader, unit="batch", leave=False, desc="Evaluation phase") as tbar,
+                ):
                     for batch in tbar:
                         x = batch["feature"].to(self.device)
                         y_true = batch["y_true"].cpu().numpy()
@@ -197,11 +188,7 @@ class EvaluationService:
                 y_pred=self.state.y_pred,
                 output_dict=True,
             )
-            classification_report_repository.create(
-                db=db,
-                report=ClassificationReport(run_id=run_id, report=report)
-            )
+            classification_report_repository.create(db=db, report=ClassificationReport(run_id=run_id, report=report))
         finally:
             db.close()
             self.logger.info("Evaluation process complete.")
-

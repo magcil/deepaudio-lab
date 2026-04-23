@@ -32,10 +32,7 @@ def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
     service = EvaluationService()
     run, _, _ = service.register_run(db, params)
 
-    thread = threading.Thread(
-        target=service.perform_evaluation,
-        args=(params, run.id)
-    )
+    thread = threading.Thread(target=service.perform_evaluation, args=(params, run.id))
     thread.start()
 
     print("Evaluation has started in a background thread!")
