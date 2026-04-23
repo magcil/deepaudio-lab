@@ -1,11 +1,13 @@
 # routers/training.py
-import json
+
 import threading
 
 import torch
 from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
 
+from db.session import get_db
 from schemas.train_params import TrainingOptionsResponse, TrainParams
 from services.training_service import TrainingService
 
@@ -13,32 +15,31 @@ router = APIRouter(prefix="/train", tags=["Training"])
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
-def train(params: TrainParams):
-    """Launch an audio classification training task.
+def train(params: TrainParams, db: Session = Depends(get_db)):
+    """Start a training run asynchronously.
 
-    Accepts training parameters, instantiates a TrainingService,
-    and starts training in a background thread so the request
-    returns immediately.
+    Registers the run and its training parameters in the database, then
+    kicks off the actual training loop on a background thread so the
+    request returns immediately with ``202 Accepted``.
 
     Args:
-        params (TrainParams): Training configuration including dataset paths,
-            model architecture, hyperparameters, and class mapping.
+        params (TrainParams): Training configuration submitted by the
+            client (model/backbone choice, dataset, hyperparameters, …).
+        db (Session, optional): SQLAlchemy session injected by FastAPI
+            via the ``get_db`` dependency.
 
     Returns:
-        dict: A status message confirming the training job has started.
+        dict: Acknowledgement payload with the run status, the assigned
+        run name, and the persisted training parameters.
     """
-    # Load class mapping
-    with open(params.class_mapping) as f:
-        class_mapping = json.load(f)
-
-    # Perform training
     service = TrainingService()
-    thread = threading.Thread(target=service.perform_training, args=(params, class_mapping))
+
+    run, train_params, class_mapping = service.register_run(db, params)
+
+    thread = threading.Thread(target=service.perform_training, args=(params, class_mapping, run.id))
     thread.start()
 
-    print("Training has started in a background thread!")  # Just for confirmation in the console
-
-    return {"status": "started"}
+    return {"status": "started", "run_name": run.name, "train_params": train_params}
 
 
 @router.get("/options", response_model=TrainingOptionsResponse, status_code=status.HTTP_200_OK)

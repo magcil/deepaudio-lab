@@ -52,7 +52,8 @@
   border-radius: 4px;
 }
 
-.form-field input {
+.form-field input,
+.form-field textarea {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
@@ -64,11 +65,13 @@
   transition: border-color 0.15s;
 }
 
-.form-field input::placeholder {
+.form-field input::placeholder,
+.form-field textarea::placeholder {
   color: #4a6280;
 }
 
-.form-field input:focus {
+.form-field input:focus,
+.form-field textarea:focus {
   border-color: rgba(99, 155, 255, 0.5);
   background: rgba(255, 255, 255, 0.06);
 }

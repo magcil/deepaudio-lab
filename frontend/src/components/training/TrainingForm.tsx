@@ -7,6 +7,8 @@ import './TrainingForm.css'
 
 export interface TrainingFormData {
   // Data config
+  experimentName: string
+  description: string
   trainingData: string
   classMapping: string
   validationData: string
@@ -43,6 +45,8 @@ export default function TrainingForm() {
   }, [])
 
   const [form, setForm] = useState<TrainingFormData>({
+    experimentName: '',
+    description: '',
     trainingData: '',
     classMapping: '',
     validationData: '',
@@ -64,7 +68,7 @@ export default function TrainingForm() {
     gpuIndex: '',
   })
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
@@ -80,6 +84,8 @@ export default function TrainingForm() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const payload = {
+      experimentName: form.experimentName,
+      description: form.description || null,
       trainingData: form.trainingData,
       classMapping: form.classMapping || null,
       validationData: form.validationData || null,

@@ -1,6 +1,9 @@
 # schemas/evaluation_params.py
+from deepaudiox.schemas.types import DeviceName
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
+
+VALID_DEVICES: frozenset[str] = frozenset(DeviceName.__args__)
 
 
 class EvaluationParams(BaseModel):
@@ -35,12 +38,22 @@ class EvaluationParams(BaseModel):
     num_classes: int
     batch_size: int = Field(default=8)
     class_mapping: str
+    experiment_name: str = Field(min_length=1)
+    description: str | None = Field(default=None)
+    parent_run_name: str | None = Field(default=None)
 
     @field_validator("device", mode="before")
     @classmethod
     def normalize_device(cls, v: str) -> str:
         if v == "gpu":
             return "cuda"
+        return v
+
+    @field_validator("device")
+    @classmethod
+    def validate_device(cls, v: str) -> str:
+        if v not in VALID_DEVICES:
+            raise ValueError(f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}")
         return v
 
     @field_validator("gpu_index", mode="before")
