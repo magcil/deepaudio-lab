@@ -215,3 +215,5 @@ __marimo__/
 
 # Database files
 *.db
+deployment/pretrained_models/class_mapping.json
+blues.00080.wav
