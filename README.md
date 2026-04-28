@@ -19,6 +19,27 @@ cd backend
 uv sync
 ```
 
+Create a `.env` file inside `backend/` with your PostgreSQL connection string:
+
+```
+DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<dbname>
+```
+
+Start the PostgreSQL server using Docker before running the backend:
+
+```bash
+cd database
+docker compose up -d
+```
+
+To stop it:
+
+```bash
+docker compose down
+```
+
+The database tables are created automatically on first startup.
+
 ### Run
 
 ```bash

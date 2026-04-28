@@ -198,6 +198,7 @@ class TrainingService:
                 num_workers=params.workers,
                 batch_size=params.batch_size,
                 path_to_checkpoint=f"{params.checkpoint}.pt",
+                device=params.device,
                 device_index=params.gpu_index,
             )
 
