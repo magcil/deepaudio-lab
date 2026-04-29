@@ -35,6 +35,23 @@ def get_all_runs(db: Session = Depends(get_db)):
     ]
 
 
+@router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_run(run_id: int, db: Session = Depends(get_db)):
+    """Delete a run and all its owned data.
+
+    Args:
+        run_id (int): Primary key of the run to delete.
+        db (Session, optional): SQLAlchemy session injected by FastAPI
+            via the ``get_db`` dependency.
+
+    Raises:
+        EntityNotFoundError: No run with the given ``run_id`` exists.
+    """
+    deleted = run_repository.delete(db, run_id)
+    if not deleted:
+        raise EntityNotFoundError("Run", run_id)
+
+
 @router.get("/{run_id}", status_code=status.HTTP_200_OK)
 def get_run(run_id: int, db: Session = Depends(get_db)):
     """Retrieve all information about a single run from all tables.

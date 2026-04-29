@@ -143,6 +143,31 @@ def get_all(db: Session) -> list[Run]:
         raise RepositoryError("Failed to fetch all runs") from e
 
 
+def delete(db: Session, id: int) -> bool:
+    """Delete a run by its primary key.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        id (int): Primary key of the run to delete.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while deleting.
+
+    Returns:
+        bool: ``True`` if a row was deleted, ``False`` if no run matched.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == id).first()
+        if run is None:
+            return False
+        db.delete(run)
+        db.commit()
+        return True
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to delete run with ID '{id}'") from e
+
+
 def get_by_name(db: Session, name: str) -> Run | None:
     """Look up a run by its unique name.
 

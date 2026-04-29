@@ -152,3 +152,9 @@
 .btn-primary:hover {
   background: #4d7fe0;
 }
+
+.training-started-msg {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #6fcf97;
+}

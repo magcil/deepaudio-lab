@@ -54,3 +54,6 @@ export const getRuns = (): Promise<Run[]> =>
 
 export const getRunById = (id: number): Promise<RunDetail> =>
   client.get<RunDetail>(`/runs/${id}`);
+
+export const deleteRun = (id: number): Promise<void> =>
+  client.delete(`/runs/${id}`);

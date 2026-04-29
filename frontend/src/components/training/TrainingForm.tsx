@@ -32,8 +32,33 @@ export interface TrainingFormData {
   gpuIndex: string
 }
 
+const INITIAL_FORM: TrainingFormData = {
+  experimentName: '',
+  description: '',
+  trainingData: '',
+  classMapping: '',
+  validationData: '',
+  samplingRate: '',
+  segmentDuration: '',
+  backbone: 'beats',
+  poolingMethod: '',
+  pretrained: true,
+  freezeBackbone: false,
+  modelSamplingRate: '',
+  numClasses: '',
+  checkpoint: '',
+  epochs: '',
+  patience: '',
+  learningRate: '',
+  workers: '',
+  batchSize: '',
+  device: 'cpu',
+  gpuIndex: '',
+}
+
 export default function TrainingForm() {
   const [options, setOptions] = useState<TrainingOptions>({ backbones: [], poolingMethods: [], gpuIndexes: [] })
+  const [started, setStarted] = useState(false)
 
   useEffect(() => {
     getTrainingOptions()
@@ -44,29 +69,7 @@ export default function TrainingForm() {
       .catch(console.error)
   }, [])
 
-  const [form, setForm] = useState<TrainingFormData>({
-    experimentName: '',
-    description: '',
-    trainingData: '',
-    classMapping: '',
-    validationData: '',
-    samplingRate: '',
-    segmentDuration: '',
-    backbone: 'beats',
-    poolingMethod: '',
-    pretrained: true,
-    freezeBackbone: false,
-    modelSamplingRate: '',
-    numClasses: '',
-    checkpoint: '',
-    epochs: '',
-    patience: '',
-    learningRate: '',
-    workers: '',
-    batchSize: '',
-    device: 'cpu',
-    gpuIndex: '',
-  })
+  const [form, setForm] = useState<TrainingFormData>(INITIAL_FORM)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -109,7 +112,9 @@ export default function TrainingForm() {
     console.log('Submitting training with payload:', payload)
     console.log('Field types:', Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, `${typeof v} (${v})`])))
     await startTraining(payload)
-
+    setForm(INITIAL_FORM)
+    setStarted(true)
+    setTimeout(() => setStarted(false), 8000)
   }
 
   return (
@@ -120,6 +125,7 @@ export default function TrainingForm() {
 
       <div className="form-actions">
         <button type="submit" className="btn-primary">Start Training</button>
+        {started && <p className="training-started-msg">Training has started</p>}
       </div>
     </form>
   )
