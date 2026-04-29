@@ -2,122 +2,91 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from exceptions.exceptions import DuplicateEntityError, RepositoryError
-from models.evaluation_params import EvaluationParams
+from models.experiment_params import ExperimentParams
 from models.run import Run
-from models.train_params import TrainParams
 
 
 def create(db: Session, run: Run) -> Run:
-    """Persist a new run row.
+    """Persist a new Run record in the database.
 
     Args:
         db (Session): Active SQLAlchemy session.
-        run (Run): Run instance to insert. ``name`` must be unique.
+        run (Run): Run instance to persist. Must have a unique name.
 
     Raises:
-        DuplicateEntityError: A run with the same ``name`` already exists.
-        RepositoryError: Any other SQLAlchemy error while inserting.
+        DuplicateEntityError: If a run with the same name already exists.
+        RepositoryError: If any database error occurs during insertion.
 
     Returns:
-        Run: The persisted run, refreshed with database-generated values.
+        Run: The persisted Run instance with database-generated fields populated.
     """
     try:
         db.add(run)
         db.commit()
         db.refresh(run)
         return run
+
     except IntegrityError as e:
         db.rollback()
         raise DuplicateEntityError("Run", run.name) from e
+
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError("Failed to create run") from e
 
 
-def create_with_train_params(db: Session, run: Run, train_params: TrainParams) -> tuple[Run, TrainParams]:
-    """Persist a run together with its training parameters atomically.
+def create_run_with_params(
+    db: Session, run: Run, exp_params: ExperimentParams
+) -> Run:
+    """Create a Run together with its associated ExperimentParams in one transaction.
 
-    Both rows are inserted in the same transaction so neither is left
-    orphaned if the commit fails.
-
-    Args:
-        db (Session): Active SQLAlchemy session.
-        run (Run): Run instance to insert. ``name`` must be unique.
-        train_params (TrainParams): Training parameters associated with
-            the run.
-
-    Raises:
-        DuplicateEntityError: A run with the same ``name`` already exists.
-        RepositoryError: Any other SQLAlchemy error while inserting.
-
-    Returns:
-        tuple[Run, TrainParams]: The persisted run and training
-        parameters, refreshed with database-generated values.
-    """
-    try:
-        db.add(run)
-        db.add(train_params)
-        db.commit()
-        db.refresh(run)
-        db.refresh(train_params)
-        return run, train_params
-    except IntegrityError as e:
-        db.rollback()
-        raise DuplicateEntityError("Run", run.name) from e
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise RepositoryError("Failed to create run with train params") from e
-
-
-def create_with_evaluation_params(
-    db: Session, run: Run, evaluation_params: EvaluationParams
-) -> tuple[Run, EvaluationParams]:
-    """Persist a run together with its evaluation parameters atomically.
-
-    Both rows are inserted in the same transaction so neither is left
-    orphaned if the commit fails.
+    Establishes a one-to-one relationship between Run and ExperimentParams and
+    persists both entities atomically.
 
     Args:
         db (Session): Active SQLAlchemy session.
-        run (Run): Run instance to insert. ``name`` must be unique.
-        evaluation_params (EvaluationParams): Evaluation parameters
-            associated with the run.
+        run (Run): Run instance to persist.
+        exp_params (ExperimentParams): Experiment parameters linked to the run.
 
     Raises:
-        DuplicateEntityError: A run with the same ``name`` already exists.
-        RepositoryError: Any other SQLAlchemy error while inserting.
+        DuplicateEntityError: If a run with the same name already exists.
+        RepositoryError: If any database error occurs during transaction.
 
     Returns:
-        tuple[Run, EvaluationParams]: The persisted run and evaluation
-        parameters, refreshed with database-generated values.
+        Run: The persisted Run instance with its related ExperimentParams loaded.
     """
     try:
+        run.experiment_params = exp_params
+
         db.add(run)
-        db.add(evaluation_params)
         db.commit()
+
         db.refresh(run)
-        db.refresh(evaluation_params)
-        return run, evaluation_params
+        db.refresh(exp_params)
+
+        return run
+
     except IntegrityError as e:
         db.rollback()
         raise DuplicateEntityError("Run", run.name) from e
+
     except SQLAlchemyError as e:
         db.rollback()
-        raise RepositoryError("Failed to create run with train params") from e
+        raise RepositoryError("Failed to create run with params") from e
 
 
 def get_by_id(db: Session, id: int) -> Run | None:
-    """Look up a run by its primary key.
+    """Retrieve a Run by its primary key.
 
     Args:
         db (Session): Active SQLAlchemy session.
-        id (int): Primary key of the run.
+        id (int): Primary key of the Run.
 
     Raises:
-        RepositoryError: SQLAlchemy error while querying.
+        RepositoryError: If a database query error occurs.
 
     Returns:
-        Run | None: The matching run, or ``None`` if no row matches.
+        Run | None: Matching Run instance or None if not found.
     """
     try:
         return db.query(Run).filter(Run.id == id).first()
@@ -126,16 +95,16 @@ def get_by_id(db: Session, id: int) -> Run | None:
 
 
 def get_all(db: Session) -> list[Run]:
-    """Retrieve all runs.
+    """Retrieve all Run records from the database.
 
     Args:
         db (Session): Active SQLAlchemy session.
 
     Raises:
-        RepositoryError: SQLAlchemy error while querying.
+        RepositoryError: If a database query error occurs.
 
     Returns:
-        list[Run]: All persisted runs, or an empty list if none exist.
+        list[Run]: List of all stored Run instances.
     """
     try:
         return db.query(Run).all()
@@ -144,17 +113,17 @@ def get_all(db: Session) -> list[Run]:
 
 
 def get_by_name(db: Session, name: str) -> Run | None:
-    """Look up a run by its unique name.
+    """Retrieve a Run by its unique name.
 
     Args:
         db (Session): Active SQLAlchemy session.
         name (str): Unique name of the run.
 
     Raises:
-        RepositoryError: SQLAlchemy error while querying.
+        RepositoryError: If a database query error occurs.
 
     Returns:
-        Run | None: The matching run, or ``None`` if no row matches.
+        Run | None: Matching Run instance or None if not found.
     """
     try:
         return db.query(Run).filter(Run.name == name).first()

@@ -28,8 +28,7 @@ def get_all_runs(db: Session = Depends(get_db)):
             "name": run.name,
             "description": run.description,
             "task_type": run.task_type,
-            "created_at": run.created_at,
-            "parent_run_id": run.parent_run_id,
+            "created_at": run.created_at
         }
         for run in runs
     ]
@@ -61,7 +60,6 @@ def get_run(run_id: int, db: Session = Depends(get_db)):
         "description": run.description,
         "task_type": run.task_type,
         "created_at": run.created_at,
-        "parent_run_id": run.parent_run_id,
         "train_params": None,
         "evaluation_params": None,
         "losses": [
@@ -75,35 +73,28 @@ def get_run(run_id: int, db: Session = Depends(get_db)):
         "classification_report": (run.classification_report.report if run.classification_report else None),
     }
 
-    if run.train_params:
-        tp = run.train_params
+    if run.experiment_params:
+        exp_params = run.experiment_params
         result["train_params"] = {
-            "class_mapping": tp.class_mapping,
-            "batch_size": tp.batch_size,
-            "num_workers": tp.num_workers,
-            "epochs": tp.epochs,
-            "patience": tp.patience,
-            "lr": tp.lr,
-            "sample_rate": tp.sample_rate,
-            "segment_duration": tp.segment_duration,
-            "n_classes": tp.n_classes,
-            "backbone": tp.backbone,
-            "pretrained_backbone": tp.pretrained_backbone,
-            "pooling": tp.pooling,
-            "freeze_backbone": tp.freeze_backbone,
-            "path_to_checkpoint": tp.path_to_checkpoint,
-            "path_to_train": tp.path_to_train,
-            "path_to_validation": tp.path_to_validation,
-            "device": tp.device,
-            "gpu_index": tp.gpu_index,
-        }
-
-    if run.evaluation_params:
-        ep = run.evaluation_params
-        result["evaluation_params"] = {
-            "path_to_test": ep.path_to_test,
-            "path_to_checkpoint": ep.path_to_checkpoint,
-            "class_mapping": ep.class_mapping,
+            "class_mapping": exp_params.class_mapping,
+            "batch_size": exp_params.batch_size,
+            "num_workers": exp_params.num_workers,
+            "epochs": exp_params.epochs,
+            "patience": exp_params.patience,
+            "lr": exp_params.lr,
+            "sample_rate": exp_params.sample_rate,
+            "segment_duration": exp_params.segment_duration,
+            "n_classes": exp_params.n_classes,
+            "backbone": exp_params.backbone,
+            "pretrained_backbone": exp_params.pretrained_backbone,
+            "pooling": exp_params.pooling,
+            "freeze_backbone": exp_params.freeze_backbone,
+            "path_to_checkpoint": exp_params.path_to_checkpoint,
+            "path_to_train": exp_params.path_to_train,
+            "path_to_validation": exp_params.path_to_validation,
+            "path_to_test": exp_params.path_to_test,
+            "device": exp_params.device,
+            "gpu_index": exp_params.gpu_index,
         }
 
     return result

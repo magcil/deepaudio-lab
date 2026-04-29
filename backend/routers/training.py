@@ -34,12 +34,16 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
     """
     service = TrainingService()
 
-    run, train_params, class_mapping = service.register_run(db, params)
+    run, class_mapping, exp_params = service.register_run(db, params)
 
-    thread = threading.Thread(target=service.perform_training, args=(params, class_mapping, run.id))
+    thread = threading.Thread(
+        target=service.perform_training, 
+        args=(params, class_mapping, run.id),
+        daemon=True
+    )
     thread.start()
 
-    return {"status": "started", "run_name": run.name, "train_params": train_params}
+    return {"status": "started", "run_name": run.name, "exp_params": exp_params}
 
 
 @router.get("/options", response_model=TrainingOptionsResponse, status_code=status.HTTP_200_OK)

@@ -10,10 +10,10 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from db.session import SessionLocal
-from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
+from exceptions.exceptions import InvalidResourceError, ResourceNotFoundError
+from models.experiment_params import ExperimentParams
 from models.loss import Loss
 from models.run import Run, TaskType
-from models.train_params import TrainParams as TrainParamsModel
 from repositories import loss_repository, run_repository
 from schemas.train_params import TrainParams
 
@@ -25,7 +25,7 @@ class TrainingService:
         """Initialize the training service with a module-level logger."""
         self.logger = logging.getLogger(__name__)
 
-    def register_run(self, db: Session, params: TrainParams) -> tuple[Run, TrainParamsModel, dict]:
+    def register_run(self, db: Session, params: TrainParams) -> tuple[Run, ExperimentParams, dict]:
         """Validate inputs and persist a new training run.
 
         Loads and parses the class-mapping file, resolves the optional
@@ -45,7 +45,7 @@ class TrainingService:
                 set but no run with that name exists.
 
         Returns:
-            tuple[Run, TrainParamsModel, dict]: The persisted run, the
+            tuple[Run, ExperimentParams, dict]: The persisted run, the
             persisted training-params row, and the loaded class mapping.
         """
         # Validate external resources
@@ -57,23 +57,14 @@ class TrainingService:
         except json.JSONDecodeError as e:
             raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
 
-        # Validate referenced entities
-        parent_run_id = None
-        if params.parent_run_name is not None:
-            parent = run_repository.get_by_name(db, params.parent_run_name)
-            if parent is None:
-                raise ReferencedEntityNotFoundError("Run", params.parent_run_name)
-            parent_run_id = parent.id
-
         # Build entities
         run = Run(
             name=params.experiment_name,
             description=params.description,
-            task_type=TaskType.train,
-            parent_run_id=parent_run_id,
+            task_type=TaskType.train
         )
 
-        train_params = TrainParamsModel(
+        exp_params = ExperimentParams(
             run=run,
             class_mapping=class_mapping,
             batch_size=params.batch_size,
@@ -96,11 +87,11 @@ class TrainingService:
         )
 
         # Single transaction: both rows commit together or neither does
-        created_run, created_train_params = run_repository.create_with_train_params(
-            db=db, run=run, train_params=train_params
+        created_run = run_repository.create_run_with_params(
+            db=db, run=run, exp_params=exp_params
         )
 
-        return created_run, created_train_params, class_mapping
+        return created_run, class_mapping, exp_params
 
     def register_losses(self, db: Session, train_loss: float, validation_loss: float, epoch: int, run_id: int):
         """Persist the train and validation loss for one epoch.
