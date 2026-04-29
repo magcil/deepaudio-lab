@@ -2,11 +2,6 @@ import client from '../api/client';
 
 export interface EvaluationPayload {
   evaluationData: string;
-  classMapping: string;
-  samplingRate?: number;
-  segmentDuration: number | null;
-  modelCheckpoint: string;
-  numClasses: number;
   batchSize?: number;
   workers?: number;
   device: 'cpu' | 'gpu';

@@ -8,7 +8,6 @@ export default function Evaluation() {
       <p className="page-summary">
         Benchmark trained models against test sets. Compare metrics and export evaluation reports.
       </p>
-
       <EvaluationForm />
     </div>
   )

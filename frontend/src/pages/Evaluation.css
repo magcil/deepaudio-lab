@@ -1,0 +1,82 @@
+.experiment-picker {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.experiment-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.experiment-selected-label {
+  font-size: 14px;
+  color: #9fb5d1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.btn-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #e5ecf6;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-dropdown:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-dropdown .chevron {
+  font-size: 10px;
+  color: #5a7a9e;
+  transition: transform 0.15s;
+}
+
+.btn-dropdown.open .chevron {
+  transform: rotate(180deg);
+}
+
+.experiment-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 400px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #0f1a2f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  z-index: 100;
+}
+
+.experiment-dropdown-item {
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #9fb5d1;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.experiment-dropdown-item:hover {
+  background: rgba(99, 155, 255, 0.1);
+  color: #e5ecf6;
+}
+
+.experiment-dropdown-item + .experiment-dropdown-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}

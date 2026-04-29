@@ -54,7 +54,7 @@ export default function ExperimentDetail({ id, onBack }: Props) {
       <LossCharts losses={run.losses} />
       {run.train_params && (
         <section className="experiments-section">
-          <h2 className="section-heading">Training Parameters</h2>
+          <h2 className="section-heading">Experiment Parameters</h2>
           <pre className="json-block">{JSON.stringify(run.train_params, null, 2)}</pre>
         </section>
       )}
