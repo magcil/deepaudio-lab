@@ -54,13 +54,14 @@ class EvaluationService:
         logging.basicConfig(level=logging.INFO, format="%(message)s")
         self.logger = logging.getLogger("ConsoleLogger")
 
-    def update_exp_params(self, db: Session, evaluation_params: EvaluationParams):
-        """Validate and update experiment parameters for evaluation.
+    def update_run_and_exp_params(self, db: Session, evaluation_params: EvaluationParams):
+        """Validate and update run and experiment parameters for evaluation.
 
         Retrieves the training run referenced in the evaluation request,
-        ensures it exists and has not already been evaluated, and updates
-        its associated experiment parameters with the provided test dataset
-        path.
+        ensures it exists and has not already been evaluated, updates the
+        run's task type, and sets the test dataset path in the associated
+        experiment parameters. Both updates are committed atomically via a
+        dedicated repository method.
 
         Args:
             db (Session): Active SQLAlchemy session.
@@ -82,6 +83,10 @@ class EvaluationService:
         if train_exp is None:
             raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
 
+        # Update run 
+        train_exp.task_type = "train_evaluation"
+        run_repository.update_run(db=db, run=train_exp)
+
         # Update experiment params
         exp_params = train_exp.experiment_params
 
@@ -89,13 +94,20 @@ class EvaluationService:
             raise InvalidStateError("Experiment already evaluated")
 
         exp_params.path_to_test = evaluation_params.evaluation_data
+        experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
 
-        updated_exp_params = experiment_params_repository.update_experiment_params(
-            db=db,
-            exp_params=exp_params
-        )
+        exp_params_dict = {
+            "path_to_checkpoint": exp_params.path_to_checkpoint,
+            "path_to_test": exp_params.path_to_test,
+            "sample_rate": exp_params.sample_rate,
+            "segment_duration": exp_params.segment_duration,
+            "class_mapping": exp_params.class_mapping,
+            "batch_size": exp_params.batch_size,
+            "num_workers": exp_params.num_workers,
+            "gpu_index": exp_params.gpu_index,
+        }
 
-        return train_exp.id, updated_exp_params.__dict__
+        return train_exp.id, exp_params_dict
 
     def perform_evaluation(self, run_id: int, exp_params: dict):
         """Execute the evaluation pipeline for a trained model.
@@ -119,13 +131,13 @@ class EvaluationService:
         """
         db = SessionLocal()
         try:
-            self.device = get_device(device_index=exp_params["gpu_index"])
+            device = get_device(device_index=exp_params["gpu_index"])
 
-            self.model = AudioClassifier.from_checkpoint(
+            model = AudioClassifier.from_checkpoint(
                 f"{exp_params['path_to_checkpoint']}.pt"
             )
-            self.model.to(self.device)
-            self.model.eval()
+            model.to(device)
+            model.eval()
 
             dataset = audio_classification_dataset_from_dir(
                 root_dir=exp_params["path_to_test"],
@@ -145,10 +157,10 @@ class EvaluationService:
 
             with torch.inference_mode():
                 for batch in dataloader:
-                    x = batch["feature"].to(self.device)
+                    x = batch["feature"].to(device)
                     y_true = batch["y_true"].cpu().numpy()
 
-                    inference = self.model.predict(x)
+                    inference = model.predict(x)
 
                     y_pred = np.array(inference["y_preds"], dtype=int)
                     post = np.array(inference["posteriors"], dtype=float)

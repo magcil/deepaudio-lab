@@ -39,7 +39,7 @@ def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
 
     # Perform evaluation
     service = EvaluationService()
-    run_id, updated_exp_params = service.update_exp_params(db, params)
+    run_id, updated_exp_params = service.update_run_and_exp_params(db, params)
 
     thread = threading.Thread(
         target=service.perform_evaluation,

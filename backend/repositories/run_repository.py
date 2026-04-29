@@ -129,3 +129,27 @@ def get_by_name(db: Session, name: str) -> Run | None:
         return db.query(Run).filter(Run.name == name).first()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by name '{name}'") from e
+    
+def update_run(
+    db: Session, run: Run
+) -> Run:
+    """Commits any pending changes to the given Run instance and returns the refreshed object.
+
+    Args:
+        db (Session): The SQLAlchemy database session.
+        run (Run): The Run instance with pending changes to be committed.
+
+    Raises:
+        RepositoryError: If the commit or refresh operation fails due to a database error.
+
+    Returns:
+        Run: The updated and refreshed Run instance.
+    """
+    try:
+        db.commit()
+        db.refresh(run)
+        return run
+
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError("Failed to update run") from e
