@@ -3,11 +3,20 @@ import type { EvaluationFormData } from './EvaluationForm'
 interface Props {
   values: Pick<EvaluationFormData, 'batchSize' | 'workers' | 'device' | 'gpuIndex'>
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
-  onDeviceChange: (device: 'cpu' | 'gpu') => void
+  onDeviceChange: (device: 'cpu' | 'gpu' | 'mps') => void
   gpuIndexes: number[]
+  cudaAvailable: boolean
+  mpsAvailable: boolean
 }
 
-export default function EvalHyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes }: Props) {
+export default function EvalHyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable }: Props) {
+  const deviceUnavailableMessage =
+    values.device === 'gpu' && !cudaAvailable
+      ? 'No CUDA GPU detected on this machine. Evaluation will fall back to CPU.'
+      : values.device === 'mps' && !mpsAvailable
+      ? 'MPS is not available on this machine. Evaluation will fall back to CPU.'
+      : null
+
   return (
     <div className="form-card">
       <h3 className="form-section-title">Evaluation Hyperparameters</h3>
@@ -60,31 +69,43 @@ export default function EvalHyperparametersSection({ values, onChange, onDeviceC
               type="button"
               className={`toggle-btn ${values.device === 'gpu' ? 'active' : ''}`}
               onClick={() => onDeviceChange('gpu')}
-              title={gpuIndexes.length === 0 ? 'No GPUs available' : undefined}
+              title={!cudaAvailable ? 'No CUDA GPU detected' : undefined}
             >
               GPU
             </button>
+            <button
+              type="button"
+              className={`toggle-btn ${values.device === 'mps' ? 'active' : ''}`}
+              onClick={() => onDeviceChange('mps')}
+              title={!mpsAvailable ? 'MPS not available' : undefined}
+            >
+              MPS
+            </button>
           </div>
         </div>
-
-        {values.device === 'gpu' && (
-          <div className="form-field">
-            <label htmlFor="gpuIndex">GPU Index</label>
-            <select
-              id="gpuIndex"
-              name="gpuIndex"
-              value={values.gpuIndex}
-              onChange={onChange}
-              required
-            >
-              <option value="" disabled>Select GPU</option>
-              {gpuIndexes.map(i => (
-                <option key={i} value={i}>{i}</option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
+
+      {deviceUnavailableMessage && (
+        <p className="device-unavailable-msg">{deviceUnavailableMessage}</p>
+      )}
+
+      {values.device === 'gpu' && (
+        <div className="form-field">
+          <label htmlFor="gpuIndex">GPU Index</label>
+          <select
+            id="gpuIndex"
+            name="gpuIndex"
+            value={values.gpuIndex}
+            onChange={onChange}
+            required
+          >
+            <option value="" disabled>Select GPU</option>
+            {gpuIndexes.map(i => (
+              <option key={i} value={i}>{i}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   )
 }

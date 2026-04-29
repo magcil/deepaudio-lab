@@ -2,14 +2,33 @@
 
 import threading
 
+import torch
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from schemas.evaluation_params import EvaluationParams
+from schemas.evaluation_params import EvaluationOptionsResponse, EvaluationParams
 from services.evaluation_service import EvaluationService
 
 router = APIRouter(prefix="/evaluate", tags=["Evaluation"])
+
+
+@router.get("/options", response_model=EvaluationOptionsResponse, status_code=status.HTTP_200_OK)
+def get_evaluation_options():
+    """Retrieve available device options for evaluation.
+
+    Returns:
+        dict: GPU indexes and availability flags for CUDA and MPS devices.
+    """
+    cuda_available = torch.cuda.is_available()
+    mps_available = torch.backends.mps.is_available()
+    gpu_indexes = list(range(torch.cuda.device_count())) if cuda_available else []
+
+    return {
+        "gpu_indexes": gpu_indexes,
+        "cuda_available": cuda_available,
+        "mps_available": mps_available,
+    }
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)

@@ -1,6 +1,6 @@
 # schemas/evaluation_params.py
 from deepaudiox.schemas.types import DeviceName
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 VALID_DEVICES: frozenset[str] = frozenset(DeviceName.__args__)
@@ -32,7 +32,7 @@ class EvaluationParams(BaseModel):
     sampling_rate: int = Field(default=16_000)
     segment_duration: float | None = Field(default=None)
     device: str = Field(default="cpu")
-    gpu_index: int | None = Field(default=0)
+    gpu_index: int | None = Field(default=None)
     workers: int = Field(default=2)
     model_checkpoint: str
     num_classes: int
@@ -56,9 +56,18 @@ class EvaluationParams(BaseModel):
             raise ValueError(f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}")
         return v
 
-    @field_validator("gpu_index", mode="before")
-    @classmethod
-    def handle_null_gpu_index(cls, v) -> int:
-        if v is None:
-            return 0
-        return v
+    @model_validator(mode="after")
+    def clear_gpu_index_for_non_cuda(self) -> "EvaluationParams":
+        if self.device != "cuda":
+            self.gpu_index = None
+        return self
+
+
+class EvaluationOptionsResponse(BaseModel):
+    """Schema for the available evaluation device options."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    gpu_indexes: list[int]
+    cuda_available: bool
+    mps_available: bool
