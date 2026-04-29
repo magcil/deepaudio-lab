@@ -28,7 +28,7 @@ export interface TrainingFormData {
   learningRate: string
   workers: string
   batchSize: string
-  device: 'cpu' | 'gpu'
+  device: 'cpu' | 'gpu' | 'mps'
   gpuIndex: string
 }
 
@@ -57,7 +57,7 @@ const INITIAL_FORM: TrainingFormData = {
 }
 
 export default function TrainingForm() {
-  const [options, setOptions] = useState<TrainingOptions>({ backbones: [], poolingMethods: [], gpuIndexes: [] })
+  const [options, setOptions] = useState<TrainingOptions>({ backbones: [], poolingMethods: [], gpuIndexes: [], cudaAvailable: false, mpsAvailable: false })
   const [started, setStarted] = useState(false)
 
   useEffect(() => {
@@ -79,9 +79,8 @@ export default function TrainingForm() {
     setForm(prev => ({ ...prev, [name]: !prev[name] }))
   }
 
-  function handleDeviceToggle() {
-    console.log('Toggling device from', form.device)
-    setForm(prev => ({ ...prev, device: prev.device === 'cpu' ? 'gpu' : 'cpu', gpuIndex: '' }))
+  function handleDeviceChange(device: 'cpu' | 'gpu' | 'mps') {
+    setForm(prev => ({ ...prev, device, gpuIndex: '' }))
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -121,7 +120,7 @@ export default function TrainingForm() {
     <form className="training-form" onSubmit={handleSubmit}>
       <DataConfigSection values={form} onChange={handleChange} />
       <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} />
-      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceToggle} gpuIndexes={options.gpuIndexes} />
+      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} />
 
       <div className="form-actions">
         <button type="submit" className="btn-primary">Start Training</button>

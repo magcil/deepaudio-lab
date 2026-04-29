@@ -23,7 +23,7 @@ export interface TrainingPayload {
   learningRate?: number;
   workers?: number;
   batchSize?: number;
-  device: 'cpu' | 'gpu';
+  device: 'cpu' | 'gpu' | 'mps';
   gpuIndex: number | null;
 }
 
@@ -46,6 +46,8 @@ export interface TrainingOptions {
   backbones: string[];
   poolingMethods: string[];
   gpuIndexes: number[];
+  cudaAvailable: boolean;
+  mpsAvailable: boolean;
 }
 
 export const getTrainingOptions = (): Promise<TrainingOptions> =>

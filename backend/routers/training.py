@@ -52,6 +52,14 @@ def get_training_options():
     backbones = list(AVAILABLE_BACKBONES)
     pooling_methods = list(AVAILABLE_POOLING)
 
-    gpu_indexes = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
+    cuda_available = torch.cuda.is_available()
+    mps_available = torch.backends.mps.is_available()
+    gpu_indexes = list(range(torch.cuda.device_count())) if cuda_available else []
 
-    return {"backbones": backbones, "pooling_methods": pooling_methods, "gpu_indexes": gpu_indexes}
+    return {
+        "backbones": backbones,
+        "pooling_methods": pooling_methods,
+        "gpu_indexes": gpu_indexes,
+        "cuda_available": cuda_available,
+        "mps_available": mps_available,
+    }

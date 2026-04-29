@@ -132,6 +132,20 @@
   color: #fff;
 }
 
+.device-unavailable-msg {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #f6a35a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.device-unavailable-msg::before {
+  content: '⚠';
+  font-size: 13px;
+}
+
 .form-actions {
   padding-top: 4px;
 }

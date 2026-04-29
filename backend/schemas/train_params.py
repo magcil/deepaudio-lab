@@ -1,6 +1,6 @@
 # schemas/train_params.py
 from deepaudiox.schemas.types import BackboneName, DeviceName, PoolingName
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 VALID_BACKBONES: frozenset[str] = frozenset(BackboneName.__args__)
@@ -58,7 +58,7 @@ class TrainParams(BaseModel):
     learning_rate: float = Field(default=1e-3, gt=0)
     workers: int = Field(default=2, ge=0)
     batch_size: int = Field(default=8, gt=0)
-    gpu_index: int | None = Field(default=0, ge=0)
+    gpu_index: int | None = Field(default=None, ge=0)
     device: str = Field(default="cpu")
     class_mapping: str
     experiment_name: str = Field(min_length=1)
@@ -79,12 +79,11 @@ class TrainParams(BaseModel):
             raise ValueError(f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}")
         return v
 
-    @field_validator("gpu_index", mode="before")
-    @classmethod
-    def handle_null_gpu_index(cls, v) -> int:
-        if v is None:
-            return 0
-        return v
+    @model_validator(mode="after")
+    def clear_gpu_index_for_non_cuda(self) -> "TrainParams":
+        if self.device != "cuda":
+            self.gpu_index = None
+        return self
 
     @field_validator("backbone")
     @classmethod
@@ -111,7 +110,8 @@ class TrainParams(BaseModel):
 class TrainingOptionsResponse(BaseModel):
     """Schema for the available training options.
 
-    Returns lists of available backbones, pooling methods, and GPU indexes.
+    Returns lists of available backbones, pooling methods, and GPU indexes,
+    plus availability flags for CUDA and MPS devices.
     Field aliases map camelCase frontend keys to snake_case Python names.
     """
 
@@ -120,3 +120,5 @@ class TrainingOptionsResponse(BaseModel):
     backbones: list[str]
     pooling_methods: list[str]
     gpu_indexes: list[int]
+    cuda_available: bool
+    mps_available: bool
