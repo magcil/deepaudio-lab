@@ -1,9 +1,10 @@
 # services/training_service.py
 import logging
+from typing import cast
 
 import torch.nn as nn
 from deepaudiox import AudioClassifier, Trainer, audio_classification_dataset_from_dir
-from deepaudiox.utils.training_utils import get_device
+from deepaudiox.utils.training_utils import DeviceName, get_device
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
@@ -16,10 +17,10 @@ class TrainingService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def perform_training(self, params: TrainParams, class_mapping: dict):
+    def perform_training(self, params: TrainParams, class_mapping: dict, progress_callback=None):
         """Execute the full training pipeline with a manual loop for frontend streaming."""
 
-        device = get_device(device_index=params.gpu_index)
+        device = get_device(device=cast(DeviceName, params.device), device_index=params.gpu_index)
 
         model = AudioClassifier(
             num_classes=len(class_mapping),
@@ -63,6 +64,7 @@ class TrainingService:
             num_workers=params.workers,
             batch_size=params.batch_size,
             path_to_checkpoint=f"{params.checkpoint}.pt",
+            device=cast(DeviceName, params.device),
             device_index=params.gpu_index,
         )
 
@@ -85,6 +87,8 @@ class TrainingService:
             train_loss, val_loss = trainer.epoch_step()
             self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
             # ---------------------------------------------------------
+            if progress_callback:
+                progress_callback(epoch, trainer.epochs, train_loss, val_loss)
 
         # 3. Fire the "on_train_end" lifecycle hook
         for cb in trainer.callbacks:

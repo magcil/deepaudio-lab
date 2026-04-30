@@ -53,6 +53,13 @@ class TrainParams(BaseModel):
     device: str = Field(default="cpu")
     class_mapping: str
 
+    @field_validator("pooling", mode="before")
+    @classmethod
+    def handle_null_pooling(cls, v) -> str:
+        if v is None:
+            return "gap"
+        return v
+
     @field_validator("device", mode="before")
     @classmethod
     def normalize_device(cls, v: str) -> str:
