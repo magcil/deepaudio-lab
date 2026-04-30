@@ -13,7 +13,7 @@ export interface Run {
   name: string;
   description: string | null;
   /** Whether this run was a training or evaluation job. */
-  task_type: 'train' | 'evaluation';
+  task_type: 'train' | 'train_evaluation';
   created_at: string;
   /** ID of the training run this evaluation was based on, if applicable. */
   parent_run_id: number | null;
@@ -27,7 +27,7 @@ export interface Loss {
 }
 
 /** Hyperparameters and paths used for a training job. */
-export interface TrainParams {
+export interface ExpParams {
   class_mapping: Record<string, string>;
   batch_size: number;
   num_workers: number;
@@ -44,6 +44,7 @@ export interface TrainParams {
   path_to_checkpoint: string;
   path_to_train: string;
   path_to_validation: string | null;
+  path_to_test: string | null;
   device: string;
   gpu_index: number;
 }
@@ -57,7 +58,7 @@ export interface EvaluationParams {
 
 /** Full run record including params, losses, and classification report. */
 export interface RunDetail extends Run {
-  train_params: TrainParams | null;
+  exp_params: ExpParams | null;
   evaluation_params: EvaluationParams | null;
   losses: Loss[];
   classification_report: Record<string, unknown> | null;
