@@ -59,7 +59,7 @@ export default function EvaluationForm() {
       workers: form.workers ? parseInt(form.workers) : undefined,
       device: form.device,
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
-      previousExperiment: selectedExperiment,
+      trainName: selectedExperiment,
     }
 
 
