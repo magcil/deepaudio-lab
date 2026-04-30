@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react'
 import EvalDataConfigSection from './EvalDataConfigSection'
 import EvalHyperparametersSection from './EvalHyperparametersSection'
-import { startEvaluation, getEvaluationOptions } from '../../services/evaluationService'
+import { startEvaluation, getEvaluationOptions, getTrainRuns } from '../../services/evaluationService'
+import type { TrainRun } from '../../services/evaluationService'
 import '../training/TrainingForm.css'
 import './EvaluationForm.css'
 
-const EXPERIMENTS = [
-  'ResNet-50 Baseline v1',
-  'AudioCNN Fine-tune',
-  'Transformer Encoder Run',
-  'LSTM Spectrogram Model',
-  'EfficientNet Audio v1',
-  'EfficientNet Audio v2',
-  'EfficientNet Audio v3',
-]
 
 export interface EvaluationFormData {
   evaluationData: string
@@ -25,6 +17,7 @@ export interface EvaluationFormData {
 
 export default function EvaluationForm() {
   const [gpuIndexes, setGpuIndexes] = useState<number[]>([])
+  const [trainRuns, setTrainRuns] = useState<TrainRun[]>([])
   const [open, setOpen] = useState(false)
   const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null)
   const [experimentError, setExperimentError] = useState(false)
@@ -32,6 +25,9 @@ export default function EvaluationForm() {
   useEffect(() => {
     getEvaluationOptions()
       .then(data => setGpuIndexes(data.gpuIndexes))
+      .catch(console.error)
+    getTrainRuns()
+      .then(data => setTrainRuns(data))
       .catch(console.error)
   }, [])
 
@@ -98,13 +94,13 @@ export default function EvaluationForm() {
         )}
         {open && (
           <div className="experiment-dropdown">
-            {EXPERIMENTS.map(name => (
+            {trainRuns.map(run => (
               <div
-                key={name}
+                key={run.id}
                 className="experiment-dropdown-item"
-                onClick={() => handleSelectExperiment(name)}
+                onClick={() => handleSelectExperiment(run.name)}
               >
-                {name}
+                {run.name}
               </div>
             ))}
           </div>

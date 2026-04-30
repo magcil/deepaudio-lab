@@ -17,3 +17,11 @@ export interface EvaluationOptions {
 
 export const getEvaluationOptions = (): Promise<EvaluationOptions> =>
   client.get<EvaluationOptions>('/train/options');
+
+export interface TrainRun {
+  id: number;
+  name: string;
+}
+
+export const getTrainRuns = (): Promise<TrainRun[]> =>
+  client.get<TrainRun[]>('/runs/type/train');
