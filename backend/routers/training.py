@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from schemas.train_params import TrainingOptionsResponse, TrainParams
+from services import run_service
 from services.training_service import TrainingService
 
 router = APIRouter(prefix="/train", tags=["Training"])
@@ -32,18 +33,18 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
         dict: Acknowledgement payload with the run status, the assigned
         run name, and the persisted training parameters.
     """
-    service = TrainingService()
+    
+    created_run = run_service.register_train(db, params)
 
-    run, class_mapping, exp_params = service.register_run(db, params)
-
+    training_service = TrainingService()
     thread = threading.Thread(
-        target=service.perform_training, 
-        args=(params, class_mapping, run.id),
+        target=training_service.perform_training, 
+        args=(params, created_run['exp_params']['class_mapping'], created_run['id']),
         daemon=True
     )
     thread.start()
 
-    return {"status": "started", "run_name": run.name, "exp_params": exp_params}
+    return {"status": "started", "run": created_run}
 
 
 @router.get("/options", response_model=TrainingOptionsResponse, status_code=status.HTTP_200_OK)

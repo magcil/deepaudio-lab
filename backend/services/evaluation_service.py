@@ -7,14 +7,11 @@ import torch
 from deepaudiox import AudioClassifier, audio_classification_dataset_from_dir
 from deepaudiox.utils.training_utils import get_device
 from sklearn.metrics import classification_report
-from sqlalchemy.orm import Session
 from torch.utils.data import DataLoader
 
 from db.session import SessionLocal
-from exceptions.exceptions import InvalidStateError, ReferencedEntityNotFoundError
 from models.classification_report import ClassificationReport
-from repositories import classification_report_repository, experiment_params_repository, run_repository
-from schemas.evaluation_params import EvaluationParams
+from repositories import classification_report_repository
 
 
 @dataclass
@@ -53,61 +50,6 @@ class EvaluationService:
 
         logging.basicConfig(level=logging.INFO, format="%(message)s")
         self.logger = logging.getLogger("ConsoleLogger")
-
-    def update_run_and_exp_params(self, db: Session, evaluation_params: EvaluationParams):
-        """Validate and update run and experiment parameters for evaluation.
-
-        Retrieves the training run referenced in the evaluation request,
-        ensures it exists and has not already been evaluated, updates the
-        run's task type, and sets the test dataset path in the associated
-        experiment parameters. Both updates are committed atomically via a
-        dedicated repository method.
-
-        Args:
-            db (Session): Active SQLAlchemy session.
-            evaluation_params (EvaluationParams): User-provided evaluation
-                configuration containing the training run name and test data path.
-
-        Raises:
-            ReferencedEntityNotFoundError: If the referenced training run
-                does not exist.
-            InvalidStateError: If the experiment has already been evaluated
-                (i.e., ``path_to_test`` is already set).
-
-        Returns:
-            tuple[int, dict]: The ID of the training run and a dictionary
-                representation of the updated experiment parameters.
-        """
-        # Validate referenced train experiment
-        train_exp = run_repository.get_by_name(db, evaluation_params.train_name)
-        if train_exp is None:
-            raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
-
-        # Update run 
-        train_exp.task_type = "train_evaluation"
-        run_repository.update_run(db=db, run=train_exp)
-
-        # Update experiment params
-        exp_params = train_exp.experiment_params
-
-        if exp_params.path_to_test is not None:
-            raise InvalidStateError("Experiment already evaluated")
-
-        exp_params.path_to_test = evaluation_params.evaluation_data
-        experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
-
-        exp_params_dict = {
-            "path_to_checkpoint": exp_params.path_to_checkpoint,
-            "path_to_test": exp_params.path_to_test,
-            "sample_rate": exp_params.sample_rate,
-            "segment_duration": exp_params.segment_duration,
-            "class_mapping": exp_params.class_mapping,
-            "batch_size": exp_params.batch_size,
-            "num_workers": exp_params.num_workers,
-            "gpu_index": exp_params.gpu_index,
-        }
-
-        return train_exp.id, exp_params_dict
 
     def perform_evaluation(self, run_id: int, exp_params: dict):
         """Execute the evaluation pipeline for a trained model.

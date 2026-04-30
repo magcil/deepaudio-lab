@@ -130,6 +130,24 @@ def get_by_name(db: Session, name: str) -> Run | None:
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by name '{name}'") from e
     
+def get_by_type(db: Session, type: str) -> list[Run]:
+    """Fetch all runs matching the given task type.
+
+    Args:
+        db (Session): SQLAlchemy database session.
+        type (str): Task type to filter by.
+
+    Raises:
+        SQLAlchemyError: If the database query fails.
+
+    Returns:
+        list[Run]: List of Run objects matching the given type.
+    """
+    try:
+        return db.query(Run).filter(Run.task_type == type).all()
+    except SQLAlchemyError as e:
+        raise RepositoryError(f"Failed to fetch runs with task type '{type}'") from e
+    
 def update_run(
     db: Session, run: Run
 ) -> Run:

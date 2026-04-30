@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from schemas.evaluation_params import EvaluationParams
+from services import run_service
 from services.evaluation_service import EvaluationService
 
 router = APIRouter(prefix="/evaluate", tags=["Evaluation"])
@@ -38,16 +39,13 @@ def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
     """
 
     # Perform evaluation
-    service = EvaluationService()
-    run_id, updated_exp_params = service.update_run_and_exp_params(db, params)
-
+    run_id, exp_params = run_service.register_evaluation(db, params)
+    
+    evaluation_service = EvaluationService()
     thread = threading.Thread(
-        target=service.perform_evaluation,
-        args=(run_id, updated_exp_params),
+        target=evaluation_service.perform_evaluation,
+        args=(run_id, exp_params),
         daemon=True
     )
     thread.start()
-
-    print("Evaluation has started in a background thread!")
-
-    return {"status": "started", "exp_params": updated_exp_params}
+    return {"status": "started", "run_id": run_id}
