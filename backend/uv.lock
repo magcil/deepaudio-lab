@@ -142,7 +142,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "celery", extras = ["redis"], specifier = ">=5.3" },
-    { name = "deepaudio-x", specifier = ">=0.4.3" },
+    { name = "deepaudio-x", specifier = ">=0.4.4" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", specifier = ">=0.135.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },

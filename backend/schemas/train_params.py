@@ -99,13 +99,6 @@ class TrainParams(BaseModel):
             raise ValueError(f"Invalid backbone '{v}'. Must be one of: {sorted(VALID_BACKBONES)}")
         return v
 
-    @field_validator("pooling", mode="before")
-    @classmethod
-    def handle_null_pooling(cls, v) -> str:
-        if v is None:
-            return "gap"
-        return v
-
     @field_validator("pooling")
     @classmethod
     def validate_pooling(cls, v: str) -> str:

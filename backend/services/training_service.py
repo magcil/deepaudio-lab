@@ -1,7 +1,7 @@
 # services/training_service.py
 import json
 import logging
-from typing import cast
+import time
 
 import torch.nn as nn
 from deepaudiox import AudioClassifier, Trainer, audio_classification_dataset_from_dir
@@ -211,6 +211,7 @@ class TrainingService:
 
             # Perform training loop
             try:
+                start_time = time.monotonic()
                 for epoch in range(1, trainer.epochs + 1):
                     if trainer.state.early_stop:
                         self.logger.info("Early stopping triggered. Halting training.")
@@ -228,7 +229,12 @@ class TrainingService:
                     self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
                     # Write on redis to update progress
                     if progress_callback is not None:
-                        progress_callback(epoch, trainer.epochs, train_loss, val_loss)
+                        elapsed = time.monotonic() - start_time
+                        avg_epoch_time = elapsed / epoch
+                        eta = avg_epoch_time * (trainer.epochs - epoch)
+                        progress_callback(
+                            epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
+                        )
             except Exception:
                 self.logger.exception("Training failed for run_id=%s", run_id)
                 raise

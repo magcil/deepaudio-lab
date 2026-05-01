@@ -66,6 +66,7 @@ def get_training_options():
         "mps_available": mps_available,
     }
 
+
 @router.get("/progress/{task_id}")
 async def get_progress(task_id: str):
     async def event_stream():
