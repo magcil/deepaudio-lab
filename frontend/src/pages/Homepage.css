@@ -1,0 +1,230 @@
+.experiments-section {
+  margin-top: 32px;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.detail-delete-button {
+  padding: 6px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.detail-delete-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #9fb5d1;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #e5ecf6;
+}
+
+.section-heading {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #c7d4e7;
+  letter-spacing: 0.02em;
+}
+
+.experiment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.experiment-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 20px 22px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.experiment-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(159, 181, 209, 0.3);
+}
+
+.experiment-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.experiment-card__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e5ecf6;
+}
+
+.experiment-card__delete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #9fb5d1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.experiment-card:hover .experiment-card__delete {
+  opacity: 1;
+}
+
+.experiment-card__delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.experiment-card__confirm {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.experiment-card__confirm-label {
+  font-size: 12px;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.experiment-card__confirm-yes,
+.experiment-card__confirm-cancel {
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  transition: background 0.15s;
+}
+
+.experiment-card__confirm-yes {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.experiment-card__confirm-yes:hover {
+  background: rgba(239, 68, 68, 0.28);
+}
+
+.experiment-card__confirm-cancel {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #9fb5d1;
+}
+
+.experiment-card__confirm-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.experiment-card__description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #9fb5d1;
+}
+
+.experiment-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pill--training {
+  background: rgba(99, 179, 237, 0.12);
+  color: #63b3ed;
+  border: 1px solid rgba(99, 179, 237, 0.25);
+}
+
+.pill--evaluation {
+  background: rgba(154, 117, 234, 0.12);
+  color: #9a75ea;
+  border: 1px solid rgba(154, 117, 234, 0.25);
+}
+
+.loss-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.loss-chart {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 20px 16px 28px;
+}
+
+.loss-chart__title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #c7d4e7;
+  letter-spacing: 0.02em;
+}
+
+.json-block {
+  margin: 0;
+  padding: 20px 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e5ecf6;
+  max-height: 400px;
+  overflow: auto;
+  white-space: pre;
+}

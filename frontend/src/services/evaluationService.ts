@@ -9,7 +9,7 @@ export interface EvaluationPayload {
   numClasses: number;
   batchSize?: number;
   workers?: number;
-  device: 'cpu' | 'gpu';
+  device: 'cpu' | 'gpu' | 'mps';
   gpuIndex: number | null;
 }
 
@@ -18,7 +18,9 @@ export const startEvaluation = (payload: EvaluationPayload): Promise<void> =>
 
 export interface EvaluationOptions {
   gpuIndexes: number[];
+  cudaAvailable: boolean;
+  mpsAvailable: boolean;
 }
 
 export const getEvaluationOptions = (): Promise<EvaluationOptions> =>
-  client.get<EvaluationOptions>('/train/options');
+  client.get<EvaluationOptions>('/evaluate/options');

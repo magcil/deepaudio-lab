@@ -1,14 +1,18 @@
 # routers/training.py
 import asyncio
 import json
+from typing import cast
 
 import torch
 from celery.result import AsyncResult
 from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
+from db.session import get_db
 from schemas.train_params import TrainingOptionsResponse, TrainParams
+from services.training_service import TrainingService
 from worker.app import celery_app
 from worker.training import run_training
 
@@ -16,11 +20,27 @@ router = APIRouter(prefix="/train", tags=["Training"])
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
-def train(params: TrainParams):
-    with open(params.class_mapping) as f:
-        class_mapping = json.load(f)
+def train(params: TrainParams, db: Session = Depends(get_db)):
+    """Start a training run asynchronously.
 
-    task = run_training.delay(params.model_dump(), class_mapping)  # type: ignore[attr-defined]
+    Registers the run and its training parameters in the database, then
+    kicks off the actual training loop on a background thread so the
+    request returns immediately with ``202 Accepted``.
+
+    Args:
+        params (TrainParams): Training configuration submitted by the
+            client (model/backbone choice, dataset, hyperparameters, …).
+        db (Session, optional): SQLAlchemy session injected by FastAPI
+            via the ``get_db`` dependency.
+
+    Returns:
+        dict: Acknowledgement payload with the run status, the assigned
+        run name, and the persisted training parameters.
+    """
+    service = TrainingService()
+    run, _, class_mapping = service.register_run(db, params)
+    task = run_training.delay(params.model_dump(), class_mapping, cast(int, run.id))
+
     return {"task_id": task.id}
 
 
@@ -34,10 +54,17 @@ def get_training_options():
     backbones = list(AVAILABLE_BACKBONES)
     pooling_methods = list(AVAILABLE_POOLING)
 
-    gpu_indexes = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
+    cuda_available = torch.cuda.is_available()
+    mps_available = torch.backends.mps.is_available()
+    gpu_indexes = list(range(torch.cuda.device_count())) if cuda_available else []
 
-    return {"backbones": backbones, "pooling_methods": pooling_methods, "gpu_indexes": gpu_indexes}
-
+    return {
+        "backbones": backbones,
+        "pooling_methods": pooling_methods,
+        "gpu_indexes": gpu_indexes,
+        "cuda_available": cuda_available,
+        "mps_available": mps_available,
+    }
 
 @router.get("/progress/{task_id}")
 async def get_progress(task_id: str):

@@ -7,19 +7,77 @@ DeepAudio-Lab: A simple app for easily prototyping deep learning models for audi
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Node.js & npm
+- [Docker](https://docs.docker.com/get-docker/)
 
-## Backend
+## Setup
 
-The backend is a FastAPI app managed with `uv`.
-
-### Setup
+### Backend dependencies
 
 ```bash
 cd backend
 uv sync
 ```
 
-### Run
+### Frontend dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+### Environment
+
+Create a `.env` file inside `backend/`:
+
+```
+DATABASE_URL=postgresql://deepaudio:deepaudio@localhost:5432/deepaudio
+```
+
+## Running the app
+
+Start all services in the following order.
+
+### 1. PostgreSQL
+
+```bash
+cd database
+docker compose up -d
+```
+
+To stop:
+
+```bash
+docker compose down
+```
+
+The database tables are created automatically on first startup.
+
+### 2. Redis
+
+```bash
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+```
+
+To stop:
+
+```bash
+docker stop redis
+```
+
+### 3. Celery worker
+
+```bash
+cd backend
+uv run celery -A worker.app worker --loglevel=info --pool=solo
+```
+
+For auto-reload on code changes, install `watchfiles` and run:
+
+```bash
+uv run watchfiles "celery -A worker.app worker --loglevel=info --pool=solo" backend
+```
+
+### 4. Backend
 
 ```bash
 cd backend
@@ -28,9 +86,18 @@ uv run uvicorn api:app --host 127.0.0.1 --port 8000 --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
-### Development
+### 5. Frontend
 
-Install with dev dependencies (includes `pytest` and `ruff`):
+```bash
+cd frontend
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`.
+
+## Development
+
+Install backend dev dependencies (includes `pytest`, `ruff`, and type stubs):
 
 ```bash
 cd backend
@@ -48,67 +115,3 @@ Lint:
 ```bash
 uv run ruff check .
 ```
-
-## Local Development with Celery + Redis
-
-Training jobs are handled asynchronously via Celery with Redis as the broker. For local development, run Redis in Docker (infrastructure only) and Celery + FastAPI as local processes so you benefit from hot-reload and direct debugger access.
-
-### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/)
-
-### Start Redis
-
-```bash
-docker run -d -p 6379:6379 --name redis redis:7-alpine
-```
-
-To stop it:
-
-```bash
-docker stop redis
-```
-
-### Run FastAPI + Celery
-
-Open two terminals from the `backend` directory:
-
-```bash
-# Terminal 1 — FastAPI
-cd backend
-uv run uvicorn api:app --host 127.0.0.1 --port 8000 --reload
-```
-
-```bash
-# Terminal 2 — Celery worker
-cd backend
-uv run celery -A worker.app worker --loglevel=info --pool=solo
-```
-
-> `--concurrency=1` ensures only one training job runs at a time, preventing CPU/GPU resource starvation.
-
-For auto-reloading the Celery worker on code changes, install `watchfiles` and run:
-
-```bash
-uv run watchfiles "celery -A worker.app worker --loglevel=info --pool=solo" backend
-```
-
-## Frontend
-
-The frontend is a React + Vite app.
-
-### Setup
-
-```bash
-cd frontend
-npm install
-```
-
-### Run
-
-```bash
-cd frontend
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`.
