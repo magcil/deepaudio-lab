@@ -82,6 +82,7 @@ class Run(Base):
     name = Column(String, nullable=False, unique=True)
     description = Column(String)
     task_type = Column(Enum(TaskType, native_enum=False), nullable=False)
+    task_id = Column(String, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     parent_run_id = Column(Integer, ForeignKey("run.id", ondelete="SET NULL"), nullable=True, index=True)
 

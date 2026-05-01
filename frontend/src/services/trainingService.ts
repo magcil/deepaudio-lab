@@ -36,8 +36,12 @@ export interface TrainingResponse {
 // export const startTraining = (payload: TrainingPayload): Promise<TrainingResponse> =>
 //   client.post<TrainingResponse>('/train', payload);
 
-export const startTraining = (payload: TrainingPayload): Promise<void> =>
-  client.post<void>('/train/', payload);
+export interface StartTrainingResponse {
+  task_id: string
+}
+
+export const startTraining = (payload: TrainingPayload): Promise<StartTrainingResponse> =>
+  client.post<StartTrainingResponse>('/train/', payload);
 
 
 // ---------- For fetching training options ----------

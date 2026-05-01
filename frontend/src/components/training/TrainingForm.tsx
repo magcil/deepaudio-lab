@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import DataConfigSection from './DataConfigSection'
 import ModelSettingsSection from './ModelSettingsSection'
 import HyperparametersSection from './HyperparametersSection'
@@ -83,7 +83,7 @@ export default function TrainingForm() {
     setForm(prev => ({ ...prev, device, gpuIndex: '' }))
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const payload = {
       experimentName: form.experimentName,
@@ -108,9 +108,8 @@ export default function TrainingForm() {
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
     }
 
-    console.log('Submitting training with payload:', payload)
-    console.log('Field types:', Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, `${typeof v} (${v})`])))
-    await startTraining(payload)
+    const { task_id } = await startTraining(payload)
+    console.log('Training started, task_id:', task_id)
     setForm(INITIAL_FORM)
     setStarted(true)
     setTimeout(() => setStarted(false), 8000)

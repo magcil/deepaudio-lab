@@ -212,6 +212,7 @@ class TrainingService:
             # Perform training loop
             try:
                 start_time = time.monotonic()
+                prev_elapsed = 0.0
                 for epoch in range(1, trainer.epochs + 1):
                     if trainer.state.early_stop:
                         self.logger.info("Early stopping triggered. Halting training.")
@@ -230,8 +231,9 @@ class TrainingService:
                     # Write on redis to update progress
                     if progress_callback is not None:
                         elapsed = time.monotonic() - start_time
-                        avg_epoch_time = elapsed / epoch
-                        eta = avg_epoch_time * (trainer.epochs - epoch)
+                        last_epoch_time = elapsed - prev_elapsed
+                        eta = last_epoch_time * (trainer.epochs - epoch)
+                        prev_elapsed = elapsed
                         progress_callback(
                             epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
                         )

@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -185,3 +187,49 @@ def get_by_name(db: Session, name: str) -> Run | None:
         return db.query(Run).filter(Run.name == name).first()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by name '{name}'") from e
+
+
+def update_task_id(db: Session, run_id: int, task_id: str) -> None:
+    """Attach a Celery task ID to an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        task_id (str): Celery task UUID returned by ``delay()``.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.task_id = task_id
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update task_id for run '{run_id}'") from e
+
+
+def get_with_task_ids(db: Session, within_hours: int = 168) -> list[Run]:
+    """Retrieve runs that have an associated Celery task, up to a time window.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        within_hours (int): How far back to look. Defaults to 168 (7 days).
+
+    Raises:
+        RepositoryError: SQLAlchemy error while querying.
+
+    Returns:
+        list[Run]: Matching runs ordered by most recent first.
+    """
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=within_hours)
+        return (
+            db.query(Run)
+            .filter(Run.task_id.isnot(None), Run.created_at >= cutoff)
+            .order_by(Run.created_at.desc())
+            .all()
+        )
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch runs with task IDs") from e

@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from db.session import get_db
+from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
 from services.training_service import TrainingService
 from worker.app import celery_app
@@ -40,6 +41,7 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
     service = TrainingService()
     run, _, class_mapping = service.register_run(db, params)
     task = run_training.delay(params.model_dump(), class_mapping, cast(int, run.id))
+    run_repository.update_task_id(db, cast(int, run.id), task.id)
 
     return {"task_id": task.id}
 
