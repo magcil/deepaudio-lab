@@ -63,15 +63,15 @@ export default function ExperimentDetail({ id, onBack }: Props) {
       </div>
       <h1 className="page-title">{run.name}</h1>
       <div className="experiment-card__pills" style={{ marginBottom: '24px' }}>
-        {run.task_type === 'train' && <span className="pill pill--training">Training</span>}
-        {run.task_type === 'evaluation' && <span className="pill pill--evaluation">Evaluation</span>}
+        <span className="pill pill--training">Training</span>
+        {run.has_evaluation && <span className="pill pill--evaluation">Evaluated</span>}
       </div>
       <p className="page-summary">{run.description}</p>
       <LossCharts losses={run.losses} />
-      {run.train_params && (
+      {run.exp_params && (
         <section className="experiments-section">
-          <h2 className="section-heading">Training Parameters</h2>
-          <pre className="json-block">{JSON.stringify(run.train_params, null, 2)}</pre>
+          <h2 className="section-heading">Experiment Parameters</h2>
+          <pre className="json-block">{JSON.stringify(run.exp_params, null, 2)}</pre>
         </section>
       )}
     </div>

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from schemas.evaluation_params import EvaluationOptionsResponse, EvaluationParams
+from services import run_service
 from services.evaluation_service import EvaluationService
 
 router = APIRouter(prefix="/evaluate", tags=["Evaluation"])
@@ -33,27 +34,37 @@ def get_evaluation_options():
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
 def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
-    """Launch an audio classification evaluation task.
+    """Start an audio classification evaluation job.
 
-    Accepts evaluation parameters, instantiates a EvaluationService,
-    and starts evaluation in a background thread so the request
-    returns immediately.
+    Validates the requested training run, updates its associated
+    experiment parameters with the evaluation dataset, and launches
+    the evaluation pipeline in a background thread. The request
+    returns immediately while evaluation continues asynchronously.
 
     Args:
-        params (EvaluationParams): Evaluation configuration including dataset path,
-            model architecture, hyperparameters, and class mapping.
+        params (EvaluationParams): Evaluation configuration including
+            the name of the training run to evaluate and the path to
+            the evaluation dataset.
+        db (Session): Active SQLAlchemy session provided by FastAPI.
 
     Returns:
-        dict: A status message confirming the training job has started.
+        dict: A response indicating that evaluation has started,
+            including the run ID and updated experiment parameters.
+
+    Raises:
+        ReferencedEntityNotFoundError: If the specified training run
+            does not exist.
+        InvalidStateError: If the experiment has already been evaluated.
     """
 
     # Perform evaluation
-    service = EvaluationService()
-    run, _, _ = service.register_run(db, params)
-
-    thread = threading.Thread(target=service.perform_evaluation, args=(params, run.id))
+    run_id, exp_params = run_service.register_evaluation(db, params)
+    
+    evaluation_service = EvaluationService()
+    thread = threading.Thread(
+        target=evaluation_service.perform_evaluation,
+        args=(run_id, exp_params),
+        daemon=True
+    )
     thread.start()
-
-    print("Evaluation has started in a background thread!")
-
-    return {"status": "started"}
+    return {"status": "started", "run_id": run_id}

@@ -63,8 +63,8 @@ export default function Home({ onSelectExperiment }: Props) {
               </div>
               <p className="experiment-card__description">{run.description}</p>
               <div className="experiment-card__pills">
-                {run.task_type === 'train' && <span className="pill pill--training">Training</span>}
-                {run.task_type === 'evaluation' && <span className="pill pill--evaluation">Evaluation</span>}
+                <span className="pill pill--training">Training</span>
+                {run.has_evaluation && <span className="pill pill--evaluation">Evaluated</span>}
               </div>
             </div>
           ))}

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from exceptions.exceptions import (
     DuplicateEntityError,
     EntityNotFoundError,
+    InvalidStateError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
 )
@@ -103,3 +104,25 @@ def register_exception_handlers(app: FastAPI) -> None:
             JSONResponse: A 422 response carrying the exception message.
         """
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(InvalidStateError)
+    async def invalid_state(request: Request, exc: InvalidStateError):
+        """Handle domain state violations during request processing.
+
+        This handler is triggered when an operation is valid in format but
+        invalid in the current system state (e.g., attempting to evaluate an
+        already evaluated run). It maps the error to an HTTP 409 Conflict
+        response.
+
+        Args:
+            request (Request): Incoming HTTP request that triggered the error.
+            exc (InvalidStateError): Raised domain exception describing the
+                invalid state condition.
+
+        Returns:
+            JSONResponse: HTTP 409 response containing the error message.
+        """
+        return JSONResponse(
+            status_code=409,
+            content={"detail": str(exc)},
+        )

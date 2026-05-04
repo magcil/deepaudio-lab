@@ -2,11 +2,7 @@ import client from '../api/client';
 
 export interface EvaluationPayload {
   evaluationData: string;
-  classMapping: string;
-  samplingRate?: number;
-  segmentDuration: number | null;
-  modelCheckpoint: string;
-  numClasses: number;
+  trainName: string;
   batchSize?: number;
   workers?: number;
   device: 'cpu' | 'gpu' | 'mps';
@@ -24,3 +20,11 @@ export interface EvaluationOptions {
 
 export const getEvaluationOptions = (): Promise<EvaluationOptions> =>
   client.get<EvaluationOptions>('/evaluate/options');
+
+export interface TrainRun {
+  id: number;
+  name: string;
+}
+
+export const getTrainRuns = (): Promise<TrainRun[]> =>
+  client.get<TrainRun[]>('/runs/type/train');

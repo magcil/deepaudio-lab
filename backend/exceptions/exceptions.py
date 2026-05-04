@@ -111,3 +111,24 @@ class InvalidResourceError(AppError):
         if reason:
             msg += f": {reason}"
         super().__init__(msg)
+
+
+class InvalidStateError(AppError):
+    """Raised when an operation violates domain state constraints.
+
+    This exception is used when a request is syntactically valid but
+    cannot be executed because the current system state makes the
+    operation invalid (e.g. attempting to evaluate an already evaluated run).
+
+    Attributes:
+        message (str): Human-readable explanation of the state violation.
+    """
+
+    def __init__(self, message: str):
+        """Initialize an InvalidStateError.
+
+        Args:
+            message (str): Detailed explanation of why the current state
+                prevents the requested operation.
+        """
+        super().__init__(message)

@@ -1,8 +1,6 @@
 # routers/training.py
 import asyncio
 import json
-from typing import cast
-
 import torch
 from celery.result import AsyncResult
 from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
@@ -13,7 +11,7 @@ from sqlalchemy.orm import Session
 from db.session import get_db
 from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
-from services.training_service import TrainingService
+from services import run_service
 from worker.app import celery_app
 from worker.training import run_training
 
@@ -38,10 +36,11 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
         dict: Acknowledgement payload with the run status, the assigned
         run name, and the persisted training parameters.
     """
-    service = TrainingService()
-    run, _, class_mapping = service.register_run(db, params)
-    task = run_training.delay(params.model_dump(), class_mapping, cast(int, run.id))
-    run_repository.update_task_id(db, cast(int, run.id), task.id)
+    run_detail = run_service.register_train(db, params)
+    run_id = run_detail["id"]
+    class_mapping = run_detail["exp_params"]["class_mapping"]
+    task = run_training.delay(params.model_dump(), class_mapping, run_id)
+    run_repository.update_task_id(db, run_id, task.id)
 
     return {"task_id": task.id}
 
