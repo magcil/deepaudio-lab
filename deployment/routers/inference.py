@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any, Dict
 
 import soundfile as sf
+import os
+from dotenv import load_dotenv
+
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends
 from fastapi import Request
 
@@ -12,12 +15,18 @@ from deployment.services.inference_service import inference_on_file
 
 router = APIRouter(prefix="/inference", tags=["Inference"])
 
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path)
 
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".mp3"}
 MIN_DURATION = 1.0          # seconds
 MAX_DURATION = 300.0        # 5 minutes
 MAX_SEGMENT_DURATION = 10.0 # seconds
+DEFAULT_SAMPLE_RATE = os.getenv('SAMPLE_RATE')
+DEFAULT_SEGMENT_DURATION = os.getenv('SEGMENT_DURATION')
 
+
+print(DEFAULT_SAMPLE_RATE, DEFAULT_SEGMENT_DURATION)
 
 def get_model(request: Request):
     return request.app.state.model
@@ -25,10 +34,10 @@ def get_model(request: Request):
 
 @router.post("/")
 async def inference(
-    path: UploadFile = File(...),
-    segment_duration: float = Form(...),
-    sample_rate: int = Form(...),
     model=Depends(get_model),
+    path: UploadFile = File(...),
+    segment_duration: float = Form(DEFAULT_SEGMENT_DURATION),
+    sample_rate: int = Form(DEFAULT_SAMPLE_RATE),
 ) -> Dict[str, Any]:
 
     # --- File extension check ---

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CLASS_MAP_FILE = BASE_DIR / "pretrained_models" / "class_mapping.json"
+CLASS_MAP_FILE_PATH = BASE_DIR / "pretrained_models" / "class_mapping.json"
 
 def inference_on_file(
     model,
@@ -13,7 +13,7 @@ def inference_on_file(
     sample_file: Path,
     sample_rate: int
 ):
-    with open(CLASS_MAP_FILE, 'r') as f:
+    with open(CLASS_MAP_FILE_PATH, 'r') as f:
         class_mapping = json.load(f)
         
     result = model.inference_on_file(
