@@ -1,5 +1,4 @@
 # services/training_service.py
-import json
 import logging
 
 import torch.nn as nn
@@ -10,11 +9,8 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from db.session import SessionLocal
-from exceptions.exceptions import InvalidResourceError, ReferencedEntityNotFoundError, ResourceNotFoundError
 from models.loss import Loss
-from models.run import Run, TaskType
-from models.train_params import TrainParams as TrainParamsModel
-from repositories import loss_repository, run_repository
+from repositories import loss_repository
 from schemas.train_params import TrainParams
 
 
@@ -24,83 +20,6 @@ class TrainingService:
     def __init__(self):
         """Initialize the training service with a module-level logger."""
         self.logger = logging.getLogger(__name__)
-
-    def register_run(self, db: Session, params: TrainParams) -> tuple[Run, TrainParamsModel, dict]:
-        """Validate inputs and persist a new training run.
-
-        Loads and parses the class-mapping file, resolves the optional
-        parent run by name, then writes the ``Run`` and its
-        ``TrainParams`` row atomically.
-
-        Args:
-            db (Session): Active SQLAlchemy session.
-            params (TrainParams): Training configuration submitted by the
-                client.
-
-        Raises:
-            ResourceNotFoundError: The class-mapping file does not exist.
-            InvalidResourceError: The class-mapping file exists but could
-                not be parsed as JSON.
-            ReferencedEntityNotFoundError: ``params.parent_run_name`` is
-                set but no run with that name exists.
-
-        Returns:
-            tuple[Run, TrainParamsModel, dict]: The persisted run, the
-            persisted training-params row, and the loaded class mapping.
-        """
-        # Validate external resources
-        try:
-            with open(params.class_mapping) as f:
-                class_mapping = json.load(f)
-        except FileNotFoundError as e:
-            raise ResourceNotFoundError("ClassMapping", params.class_mapping) from e
-        except json.JSONDecodeError as e:
-            raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
-
-        # Validate referenced entities
-        parent_run_id = None
-        if params.parent_run_name is not None:
-            parent = run_repository.get_by_name(db, params.parent_run_name)
-            if parent is None:
-                raise ReferencedEntityNotFoundError("Run", params.parent_run_name)
-            parent_run_id = parent.id
-
-        # Build entities
-        run = Run(
-            name=params.experiment_name,
-            description=params.description,
-            task_type=TaskType.train,
-            parent_run_id=parent_run_id,
-        )
-
-        train_params = TrainParamsModel(
-            run=run,
-            class_mapping=class_mapping,
-            batch_size=params.batch_size,
-            num_workers=params.workers,
-            epochs=params.epochs,
-            patience=params.patience,
-            lr=params.learning_rate,
-            sample_rate=params.sampling_rate,
-            segment_duration=params.segment_duration,
-            n_classes=params.num_classes,
-            backbone=params.backbone,
-            pretrained_backbone=params.pretrained,
-            pooling=params.pooling,
-            freeze_backbone=params.freeze_backbone,
-            path_to_checkpoint=params.checkpoint,
-            path_to_train=params.training_data,
-            path_to_validation=params.validation_data,
-            device=params.device,
-            gpu_index=params.gpu_index,
-        )
-
-        # Single transaction: both rows commit together or neither does
-        created_run, created_train_params = run_repository.create_with_train_params(
-            db=db, run=run, train_params=train_params
-        )
-
-        return created_run, created_train_params, class_mapping
 
     def register_losses(self, db: Session, train_loss: float, validation_loss: float, epoch: int, run_id: int):
         """Persist the train and validation loss for one epoch.

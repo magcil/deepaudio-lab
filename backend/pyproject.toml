@@ -38,6 +38,8 @@ select = [
     # isort
     "I"
 ]
+ignore = ["UP042"]
+
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
