@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from exceptions.exceptions import (
     DuplicateEntityError,
     EntityNotFoundError,
+    InvalidResourceError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
 )
@@ -102,4 +103,9 @@ def register_exception_handlers(app: FastAPI) -> None:
         Returns:
             JSONResponse: A 422 response carrying the exception message.
         """
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(InvalidResourceError)
+    async def invalid_resource(request: Request, exc: InvalidResourceError):
+        """Handle malformed or unusable external resources."""
         return JSONResponse(status_code=422, content={"detail": str(exc)})
