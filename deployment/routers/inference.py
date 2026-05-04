@@ -22,11 +22,8 @@ ALLOWED_EXTENSIONS = {".wav", ".flac", ".mp3"}
 MIN_DURATION = 1.0          # seconds
 MAX_DURATION = 300.0        # 5 minutes
 MAX_SEGMENT_DURATION = 10.0 # seconds
-DEFAULT_SAMPLE_RATE = os.getenv('SAMPLE_RATE')
-DEFAULT_SEGMENT_DURATION = os.getenv('SEGMENT_DURATION')
-
-
-print(DEFAULT_SAMPLE_RATE, DEFAULT_SEGMENT_DURATION)
+DEFAULT_SAMPLE_RATE = os.getenv('SAMPLE_RATE', 32000)
+DEFAULT_SEGMENT_DURATION = os.getenv('SEGMENT_DURATION', 3.0)
 
 def get_model(request: Request):
     return request.app.state.model
