@@ -142,7 +142,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "celery", extras = ["redis"], specifier = ">=5.3" },
-    { name = "deepaudio-x", specifier = ">=0.4.4" },
+    { name = "deepaudio-x", specifier = ">=0.4.5" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", specifier = ">=0.135.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
@@ -480,7 +480,7 @@ wheels = [
 
 [[package]]
 name = "deepaudio-x"
-version = "0.4.4"
+version = "0.4.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "librosa" },
@@ -492,9 +492,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/71/82c61f862743aa0d675afa5166f5066fd65ca2e46d9b45be14f7298b64d2/deepaudio_x-0.4.4.tar.gz", hash = "sha256:3480495cca6cd39787e2451250deae27e0793ab06361d6fcb47b9eaf4a670159", size = 7266466, upload-time = "2026-04-20T11:33:14.289Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/ff/7242e54307ae8ea7c12fd269f1caa033100bdb86e909788ad482e32ebb15/deepaudio_x-0.4.5.tar.gz", hash = "sha256:34747343544d5ece59259fd862998dc3f33c3f8a601d82eb7a5808a038e4411c", size = 7266440, upload-time = "2026-05-04T09:46:37.374Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/24/8f/e969045eaafb62b5b2c3626d83fe549f8beb57fc6bdb07f8f188cb89a295/deepaudio_x-0.4.4-py3-none-any.whl", hash = "sha256:eca2dd01491d2ea69cce0033dab7cf4e5464d6baeb8c564f0781ba25bc84b371", size = 85300, upload-time = "2026-04-20T11:33:13.082Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/7d/fea985b26b51a4b276ef36094441a091554bca1fcf61a1b569ea5f8d1eed/deepaudio_x-0.4.5-py3-none-any.whl", hash = "sha256:a303c94401891db14303a848482ba6537108f4d18e4aa8cfdc1ea48047455b33", size = 85258, upload-time = "2026-05-04T09:46:35.444Z" },
 ]
 
 [[package]]

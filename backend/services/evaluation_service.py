@@ -73,7 +73,10 @@ class EvaluationService:
         """
         db = SessionLocal()
         try:
-            device = get_device(device_index=exp_params["gpu_index"])
+            device = get_device(
+                device=exp_params["device"],
+                device_index=exp_params["gpu_index"] if exp_params["device"] == "cuda" else None,
+            )
 
             model = AudioClassifier.from_checkpoint(
                 f"{exp_params['path_to_checkpoint']}.pt"

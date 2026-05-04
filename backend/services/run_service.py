@@ -161,6 +161,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
         "class_mapping": exp_params.class_mapping,
         "batch_size": exp_params.batch_size,
         "num_workers": exp_params.num_workers,
+        "device": exp_params.device,
         "gpu_index": exp_params.gpu_index,
     }
 
@@ -184,6 +185,7 @@ def _serialize_run(run) -> dict:
         "name": run.name,
         "description": run.description,
         "task_type": run.task_type,
+        "has_evaluation": run.has_evaluation,
         "created_at": run.created_at,
     }
 

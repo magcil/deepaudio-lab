@@ -70,7 +70,10 @@ class TrainingService:
         db = SessionLocal()
 
         try:
-            device = get_device(device=params.device, device_index=params.gpu_index)
+            device = get_device(
+                device=params.device,
+                device_index=params.gpu_index if params.device == "cuda" else None,
+            )
 
             # Load model
             model = AudioClassifier(
