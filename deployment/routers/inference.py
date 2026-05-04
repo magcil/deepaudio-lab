@@ -1,29 +1,24 @@
-import json
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
 import soundfile as sf
-import os
-from dotenv import load_dotenv
 
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends
 from fastapi import Request
 
+from deployment.config import get_float_env, get_int_env
 from deployment.services.inference_service import inference_on_file
 
 router = APIRouter(prefix="/inference", tags=["Inference"])
-
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(dotenv_path)
 
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".mp3"}
 MIN_DURATION = 1.0          # seconds
 MAX_DURATION = 300.0        # 5 minutes
 MAX_SEGMENT_DURATION = 10.0 # seconds
-DEFAULT_SAMPLE_RATE = os.getenv('SAMPLE_RATE', 32000)
-DEFAULT_SEGMENT_DURATION = os.getenv('SEGMENT_DURATION', 3.0)
+DEFAULT_SAMPLE_RATE = get_int_env("SAMPLE_RATE", 32000)
+DEFAULT_SEGMENT_DURATION = get_float_env("SEGMENT_DURATION", 3.0)
 
 def get_model(request: Request):
     return request.app.state.model

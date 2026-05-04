@@ -1,11 +1,8 @@
 from pathlib import Path
-from typing import Any, Dict
 import json
 
-from pathlib import Path
+from deployment.config import CLASS_MAPPING_PATH
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CLASS_MAP_FILE_PATH = BASE_DIR / "pretrained_models" / "class_mapping.json"
 
 def inference_on_file(
     model,
@@ -13,9 +10,9 @@ def inference_on_file(
     sample_file: Path,
     sample_rate: int
 ):
-    with open(CLASS_MAP_FILE_PATH, 'r') as f:
+    with open(CLASS_MAPPING_PATH, "r", encoding="utf-8") as f:
         class_mapping = json.load(f)
-        
+
     result = model.inference_on_file(
         path=str(sample_file),
         sample_rate=sample_rate,
