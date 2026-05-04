@@ -42,10 +42,10 @@ class Run(Base):
         has_evaluation (bool): Whether evaluation has been executed for this run.
     """
     __tablename__ = "run"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String)
-    task_type = Column(Enum(TaskType, native_enum=False), nullable=False)
+    task_type: Mapped[TaskType] = mapped_column(Enum(TaskType, native_enum=False), nullable=False)
     task_id = Column(String, nullable=True, index=True)
     has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -69,7 +69,8 @@ export default function EvaluationForm() {
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
     }
 
-    await startEvaluation(payload)
+    const { task_id } = await startEvaluation(payload)
+    console.log('Evaluation started, task_id:', task_id)
     setForm(INITIAL_FORM)
     setSelectedExperiment(null)
     setStarted(true)

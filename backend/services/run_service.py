@@ -139,16 +139,15 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     if train_exp is None:
         raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
 
+    if train_exp.has_evaluation:
+        raise InvalidStateError("Experiment already evaluated")
+
     # Update run
     train_exp.task_type = TaskType.train_evaluation
-    train_exp.has_evaluation = True
     run_repository.update_run(db=db, run=train_exp)
 
     # Update experiment params
     exp_params = train_exp.experiment_params
-
-    if exp_params.path_to_test is not None:
-        raise InvalidStateError("Experiment already evaluated")
 
     exp_params.path_to_test = evaluation_params.evaluation_data
     experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)

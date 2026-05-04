@@ -9,8 +9,12 @@ export interface EvaluationPayload {
   gpuIndex: number | null;
 }
 
-export const startEvaluation = (payload: EvaluationPayload): Promise<void> =>
-  client.post<void>('/evaluate/', payload);
+export interface StartEvaluationResponse {
+  task_id: string;
+}
+
+export const startEvaluation = (payload: EvaluationPayload): Promise<StartEvaluationResponse> =>
+  client.post<StartEvaluationResponse>('/evaluate/', payload);
 
 export interface EvaluationOptions {
   gpuIndexes: number[];

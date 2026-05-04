@@ -142,7 +142,8 @@ def get_by_type(db: Session, type: str) -> list[Run]:
         list[Run]: List of Run objects matching the given type.
     """
     try:
-        return db.query(Run).filter(Run.task_type == type).all()
+        hasEvaluation = True if type == "evaluation" else False
+        return db.query(Run).filter(Run.has_evaluation == hasEvaluation).all()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch runs with task type '{type}'") from e
     
@@ -191,12 +192,13 @@ def update_task_id(db: Session, run_id: int, task_id: str) -> None:
         raise RepositoryError(f"Failed to update task_id for run '{run_id}'") from e
 
 
-def get_with_task_ids(db: Session, within_hours: int = 168) -> list[Run]:
+def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
     """Retrieve runs that have an associated Celery task, up to a time window.
 
     Args:
         db (Session): Active SQLAlchemy session.
-        within_hours (int): How far back to look. Defaults to 168 (7 days).
+        within_hours (int): How far back to look. Defaults to 24 hours, matching
+            Celery's default result_expires so Redis entries are guaranteed present.
 
     Raises:
         RepositoryError: SQLAlchemy error while querying.
