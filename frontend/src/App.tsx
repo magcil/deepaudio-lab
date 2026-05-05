@@ -5,8 +5,9 @@ import Homepage from './pages/Homepage'
 import Training from './pages/Training'
 import Evaluation from './pages/Evaluation'
 import ExperimentDetail from './pages/ExperimentDetail'
+import ActivityMonitor from './pages/ActivityMonitor'
 
-type Page = 'homepage' | 'training' | 'evaluation' | 'experiment'
+type Page = 'homepage' | 'training' | 'evaluation' | 'experiment' | 'activity-monitor'
 
 function App() {
   const [activePage, setActivePage] = useState<Page>('homepage')
@@ -24,6 +25,7 @@ function App() {
       {activePage === 'training' && <Training />}
       {activePage === 'evaluation' && <Evaluation />}
       {activePage === 'experiment' && <ExperimentDetail id={selectedExperimentId!} onBack={() => setActivePage('homepage')} />}
+      {activePage === 'activity-monitor' && <ActivityMonitor />}
     </div>
   )
 }

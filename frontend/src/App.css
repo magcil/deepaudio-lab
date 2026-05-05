@@ -60,6 +60,121 @@ body {
   color: #b7c7dc;
 }
 
+/* ── Activity Monitor ── */
+.am-wrap {
+  overflow-x: auto;
+}
+
+.am-empty {
+  color: #9fb5d1;
+  font-size: 14px;
+  margin: 0;
+}
+
+.am-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.am-table th {
+  padding: 10px 16px;
+  text-align: left;
+  color: #9fb5d1;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  white-space: nowrap;
+}
+
+.am-table th:last-child {
+  border-right: none;
+}
+
+.am-row td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  color: #e5ecf6;
+}
+
+.am-row td:last-child {
+  border-right: none;
+}
+
+.am-row:last-child td {
+  border-bottom: none;
+}
+
+.am-row:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.am-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+}
+
+.am-num {
+  text-align: right;
+}
+
+.am-experiment {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.am-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.am-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.am-progress-track {
+  position: relative;
+  width: 140px;
+  height: 12px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.04) 2px,
+    rgba(255, 255, 255, 0.09) 2px,
+    rgba(255, 255, 255, 0.09) 4px
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.am-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #e5ecf6;
+  transition: width 0.4s ease;
+}
+
+.am-progress-pct {
+  font-size: 12px;
+  color: #9fb5d1;
+  min-width: 42px;
+  text-align: right;
+}
+
 /* ── Responsive layout ── */
 @media (max-width: 768px) {
   .app-shell {
