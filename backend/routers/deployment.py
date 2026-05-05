@@ -7,7 +7,19 @@ from services.deployment_service import build_deployment_archive
 router = APIRouter(prefix="/deploy", tags=["Deployment"])
 
 
-@router.get("/", status_code=status.HTTP_200_OK)
+@router.get(
+    "/",
+    status_code=status.HTTP_200_OK,
+    response_class=FileResponse,
+    responses={
+        200: {
+            "content": {
+                "application/octet-stream": {}
+            },
+            "description": "Deployment archive",
+        }
+    },
+)
 def deploy(
     checkpoint_path: str = Query(..., description="Absolute path to the .pt checkpoint on the server."),
     class_mapping_path: str = Query(..., description="Absolute path to the class_mapping.json file on the server."),
@@ -23,7 +35,6 @@ def deploy(
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
     return FileResponse(
         path=artifact.archive_path,
         media_type="application/octet-stream",
