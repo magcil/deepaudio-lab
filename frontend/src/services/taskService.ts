@@ -6,8 +6,7 @@ export interface ActiveTask {
   experiment_name: string;
   task_type: 'train' | 'train_evaluation';
   created_at: string;
-  /** Celery task state: PENDING | STARTED | PROGRESS | FAILURE */
-  state: 'PENDING' | 'STARTED' | 'PROGRESS' | 'FAILURE';
+  state: 'PENDING' | 'STARTED' | 'PROGRESS' | 'SUCCESS' | 'FAILURE' | 'REVOKED';
   info: Record<string, unknown> | null;
 }
 

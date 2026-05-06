@@ -1,13 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getActiveTasks } from '../services/taskService';
 import type { ActiveTask } from '../services/taskService';
-import { BASE_URL } from '../api/client';
-const TERMINAL_STATES = new Set(['SUCCESS', 'FAILURE', 'REVOKED']);
 
-function progressUrl(task: ActiveTask): string {
-  const prefix = task.task_type === 'train' ? 'train' : 'evaluate';
-  return `${BASE_URL}/${prefix}/progress/${task.task_id}`;
-}
+const POLL_INTERVAL_MS = 2000;
 
 function formatSeconds(s: number): string {
   const m = Math.floor(s / 60);
@@ -61,13 +56,18 @@ function ProgressBar({ pct }: { pct: number }) {
 function TaskRow({ task }: { task: ActiveTask }) {
   const info = task.info as Record<string, unknown> | null;
   const progress = typeof info?.progress === 'number' ? info.progress : 0;
+  const epoch = typeof info?.epoch === 'number' ? info.epoch : null;
+  const totalEpochs = typeof info?.total_epochs === 'number' ? info.total_epochs : null;
+  const epochDisplay = epoch !== null && totalEpochs !== null ? `${epoch} / ${totalEpochs}` : '–';
 
   return (
     <tr className="am-row">
       <td><StatusCell state={task.state} /></td>
       <td className="am-mono">{formatDate(task.created_at)}</td>
       <td className="am-experiment">{task.experiment_name}</td>
+      <td className="am-mono">{task.task_type}</td>
       <td><ProgressBar pct={progress} /></td>
+      <td className="am-mono am-num">{epochDisplay}</td>
       <td className="am-mono am-num">{formatLoss(info?.train_loss)}</td>
       <td className="am-mono am-num">{formatLoss(info?.val_loss)}</td>
       <td className="am-mono am-num">{formatLoss(info?.best_val_loss)}</td>
@@ -85,37 +85,21 @@ export default function ActivityMonitor() {
   const [tasks, setTasks] = useState<ActiveTask[]>([]);
 
   useEffect(() => {
-    let sources: EventSource[] = [];
+    let cancelled = false;
 
-    getActiveTasks().then((fetched) => {
-      console.log('Active tasks:', fetched);
-      setTasks(fetched);
+    async function poll() {
+      try {
+        const fetched = await getActiveTasks();
+        console.log('GET /tasks/ response:', fetched);
+        if (!cancelled) setTasks(fetched);
+      } catch {
+        // keep previous state on error
+      }
+      if (!cancelled) setTimeout(poll, POLL_INTERVAL_MS);
+    }
 
-      sources = fetched.map((task) => {
-        const es = new EventSource(progressUrl(task));
-
-        es.onmessage = (event) => {
-          const update = JSON.parse(event.data) as {
-            state: string;
-            info: Record<string, unknown> | null;
-          };
-          console.log(`[${task.task_id}] progress update:`, update);
-          setTasks((prev) =>
-            prev.map((t) =>
-              t.task_id === task.task_id
-                ? { ...t, state: update.state as ActiveTask['state'], info: update.info }
-                : t
-            )
-          );
-          if (TERMINAL_STATES.has(update.state)) es.close();
-        };
-
-        es.onerror = () => es.close();
-        return es;
-      });
-    });
-
-    return () => sources.forEach((es) => es.close());
+    poll();
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -136,7 +120,9 @@ export default function ActivityMonitor() {
                 <th>Status</th>
                 <th>Started</th>
                 <th>Experiment</th>
+                <th>Type</th>
                 <th>Progress</th>
+                <th>Epoch</th>
                 <th>Train Loss</th>
                 <th>Val Loss</th>
                 <th>Best Val Loss</th>
