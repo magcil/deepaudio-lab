@@ -56,10 +56,6 @@ function ProgressBar({ pct }: { pct: number }) {
 function TaskRow({ task }: { task: ActiveTask }) {
   const info = task.info as Record<string, unknown> | null;
   const progress = typeof info?.progress === 'number' ? info.progress : 0;
-  const epoch = typeof info?.epoch === 'number' ? info.epoch : null;
-  const totalEpochs = typeof info?.total_epochs === 'number' ? info.total_epochs : null;
-  const epochDisplay = epoch !== null && totalEpochs !== null ? `${epoch} / ${totalEpochs}` : '–';
-
   return (
     <tr className="am-row">
       <td><StatusCell state={task.state} /></td>
@@ -67,7 +63,6 @@ function TaskRow({ task }: { task: ActiveTask }) {
       <td className="am-experiment">{task.experiment_name}</td>
       <td className="am-mono">{task.task_type}</td>
       <td><ProgressBar pct={progress} /></td>
-      <td className="am-mono am-num">{epochDisplay}</td>
       <td className="am-mono am-num">{formatLoss(info?.train_loss)}</td>
       <td className="am-mono am-num">{formatLoss(info?.val_loss)}</td>
       <td className="am-mono am-num">{formatLoss(info?.best_val_loss)}</td>
@@ -122,7 +117,6 @@ export default function ActivityMonitor() {
                 <th>Experiment</th>
                 <th>Type</th>
                 <th>Progress</th>
-                <th>Epoch</th>
                 <th>Train Loss</th>
                 <th>Val Loss</th>
                 <th>Best Val Loss</th>
