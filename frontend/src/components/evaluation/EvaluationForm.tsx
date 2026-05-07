@@ -1,49 +1,56 @@
 import { useState, useEffect } from 'react'
 import EvalDataConfigSection from './EvalDataConfigSection'
 import EvalHyperparametersSection from './EvalHyperparametersSection'
-import { startEvaluation, getEvaluationOptions, getTrainRuns } from '../../services/evaluationService'
-import type { TrainRun } from '../../services/evaluationService'
+import { startEvaluation, getEvaluationOptions, getTrainRuns, type TrainRun } from '../../services/evaluationService'
 import '../training/TrainingForm.css'
 import './EvaluationForm.css'
-
 
 export interface EvaluationFormData {
   evaluationData: string
   batchSize: string
   workers: string
-  device: 'cpu' | 'gpu'
+  device: 'cpu' | 'gpu' | 'mps'
   gpuIndex: string
+}
+
+const INITIAL_FORM: EvaluationFormData = {
+  evaluationData: '',
+  batchSize: '',
+  workers: '',
+  device: 'cpu',
+  gpuIndex: '',
 }
 
 export default function EvaluationForm() {
   const [gpuIndexes, setGpuIndexes] = useState<number[]>([])
+  const [cudaAvailable, setCudaAvailable] = useState(false)
+  const [mpsAvailable, setMpsAvailable] = useState(false)
   const [trainRuns, setTrainRuns] = useState<TrainRun[]>([])
-  const [open, setOpen] = useState(false)
   const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null)
   const [experimentError, setExperimentError] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [started, setStarted] = useState(false)
+  const [form, setForm] = useState<EvaluationFormData>(INITIAL_FORM)
 
   useEffect(() => {
     getEvaluationOptions()
-      .then(data => setGpuIndexes(data.gpuIndexes))
+      .then(data => {
+        setGpuIndexes(data.gpuIndexes)
+        setCudaAvailable(data.cudaAvailable)
+        setMpsAvailable(data.mpsAvailable)
+      })
       .catch(console.error)
+
     getTrainRuns()
-      .then(data => setTrainRuns(data))
+      .then(setTrainRuns)
       .catch(console.error)
   }, [])
-
-  const [form, setForm] = useState<EvaluationFormData>({
-    evaluationData: '',
-    batchSize: '',
-    workers: '',
-    device: 'cpu',
-    gpuIndex: '',
-  })
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  function handleDeviceChange(device: 'cpu' | 'gpu') {
+  function handleDeviceChange(device: 'cpu' | 'gpu' | 'mps') {
     setForm(prev => ({ ...prev, device, gpuIndex: '' }))
   }
 
@@ -55,16 +62,19 @@ export default function EvaluationForm() {
     }
     const payload = {
       evaluationData: form.evaluationData,
+      trainName: selectedExperiment,
       batchSize: form.batchSize ? parseInt(form.batchSize) : undefined,
       workers: form.workers ? parseInt(form.workers) : undefined,
       device: form.device,
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
-      trainName: selectedExperiment,
     }
 
-
-    console.log('Evaluation payload:', payload)
-    await startEvaluation(payload)
+    const { task_id } = await startEvaluation(payload)
+    console.log('Evaluation started, task_id:', task_id)
+    setForm(INITIAL_FORM)
+    setSelectedExperiment(null)
+    setStarted(true)
+    setTimeout(() => setStarted(false), 8000)
   }
 
   function handleSelectExperiment(name: string) {
@@ -108,10 +118,18 @@ export default function EvaluationForm() {
       </div>
 
       <EvalDataConfigSection values={form} onChange={handleChange} />
-      <EvalHyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={gpuIndexes} />
+      <EvalHyperparametersSection
+        values={form}
+        onChange={handleChange}
+        onDeviceChange={handleDeviceChange}
+        gpuIndexes={gpuIndexes}
+        cudaAvailable={cudaAvailable}
+        mpsAvailable={mpsAvailable}
+      />
 
       <div className="form-actions">
         <button type="submit" className="btn-primary">Run Evaluation</button>
+        {started && <p className="training-started-msg">Evaluation has started</p>}
       </div>
     </form>
   )

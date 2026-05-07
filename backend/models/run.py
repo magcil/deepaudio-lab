@@ -1,7 +1,7 @@
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from db.session import Base
@@ -16,8 +16,9 @@ class TaskType(str, enum.Enum):
         train: A standard training run.
         train_evaluation: An evaluation run executed after training.
     """
+
     train = "train"
-    train_evaluation = "train_evaluation"
+    train_evaluation = "evaluation"
 
 
 class Run(Base):
@@ -39,34 +40,25 @@ class Run(Base):
         losses (list[Loss]): Time-series training/validation loss records.
         classification_report (ClassificationReport): One-to-one evaluation
             results for the run.
+        has_evaluation (bool): Whether evaluation has been executed for this run.
     """
+
     __tablename__ = "run"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String)
-    task_type = Column(Enum(TaskType, native_enum=False), nullable=False)
+    task_type: Mapped[TaskType] = mapped_column(Enum(TaskType, native_enum=False), nullable=False)
+    task_id = Column(String, nullable=True, index=True)
+    has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Define relationships
     experiment_params = relationship(
-        "ExperimentParams", 
-        back_populates="run", 
-        cascade="all, delete-orphan", 
-        uselist=False,
-        passive_deletes=True
+        "ExperimentParams", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True
     )
 
-    losses = relationship(
-        "Loss", 
-        back_populates="run", 
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    losses = relationship("Loss", back_populates="run", cascade="all, delete-orphan", passive_deletes=True)
 
     classification_report = relationship(
-        "ClassificationReport", 
-        back_populates="run", 
-        cascade="all, delete-orphan", 
-        uselist=False,
-        passive_deletes=True
+        "ClassificationReport", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True
     )

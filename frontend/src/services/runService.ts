@@ -15,8 +15,8 @@ export interface Run {
   /** Whether this run was a training or evaluation job. */
   task_type: 'train' | 'train_evaluation';
   created_at: string;
-  /** ID of the training run this evaluation was based on, if applicable. */
-  parent_run_id: number | null;
+  /** Whether evaluation has been executed for this run. */
+  has_evaluation: boolean;
 }
 
 /** Per-epoch loss value recorded during training. */
@@ -71,3 +71,6 @@ export const getRuns = (): Promise<Run[]> =>
 /** Fetches a single run with full details by ID. */
 export const getRunById = (id: number): Promise<RunDetail> =>
   client.get<RunDetail>(`/runs/${id}`);
+
+export const deleteRun = (id: number): Promise<void> =>
+  client.delete(`/runs/${id}`);

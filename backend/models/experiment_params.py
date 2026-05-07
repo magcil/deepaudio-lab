@@ -49,16 +49,11 @@ class ExperimentParams(Base):
         ValueError: If an invalid backbone is provided.
         ValueError: If an invalid pooling method is provided.
     """
+
     __tablename__ = "experiment_params"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    run_id = Column(
-        Integer,
-        ForeignKey("run.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-        index=True
-    )
+    run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     class_mapping = Column(JSON, nullable=False)
     batch_size = Column(Integer, nullable=False, default=8)
     num_workers = Column(Integer, nullable=False, default=2)
@@ -79,12 +74,7 @@ class ExperimentParams(Base):
     device = Column(String, default="cpu")
     gpu_index = Column(Integer, default=0)
 
-    run = relationship(
-        "Run",
-        back_populates="experiment_params",
-        foreign_keys=[run_id],
-        passive_deletes=True
-    )
+    run = relationship("Run", back_populates="experiment_params", foreign_keys=[run_id], passive_deletes=True)
 
     @validates("backbone")
     def _validate_backbone(self, key: str, value: str) -> str:

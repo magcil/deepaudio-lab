@@ -2,21 +2,28 @@ import client from '../api/client';
 
 export interface EvaluationPayload {
   evaluationData: string;
+  trainName: string;
   batchSize?: number;
   workers?: number;
-  device: 'cpu' | 'gpu';
+  device: 'cpu' | 'gpu' | 'mps';
   gpuIndex: number | null;
 }
 
-export const startEvaluation = (payload: EvaluationPayload): Promise<void> =>
-  client.post<void>('/evaluate/', payload);
+export interface StartEvaluationResponse {
+  task_id: string;
+}
+
+export const startEvaluation = (payload: EvaluationPayload): Promise<StartEvaluationResponse> =>
+  client.post<StartEvaluationResponse>('/evaluate/', payload);
 
 export interface EvaluationOptions {
   gpuIndexes: number[];
+  cudaAvailable: boolean;
+  mpsAvailable: boolean;
 }
 
 export const getEvaluationOptions = (): Promise<EvaluationOptions> =>
-  client.get<EvaluationOptions>('/train/options');
+  client.get<EvaluationOptions>('/evaluate/options');
 
 export interface TrainRun {
   id: number;

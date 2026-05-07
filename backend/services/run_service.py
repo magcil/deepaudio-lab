@@ -46,6 +46,7 @@ def get_by_id(db: Session, run_id: int) -> dict | None:
         return None
     return _serialize_run_detail(run)
 
+
 def register_train(db: Session, params: TrainParams) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
 
@@ -103,12 +104,9 @@ def register_train(db: Session, params: TrainParams) -> dict:
         gpu_index=params.gpu_index,
     )
 
-    created_run = run_repository.create_run_with_params(
-        db=db, 
-        run=run, 
-        exp_params=exp_params
-    )
+    created_run = run_repository.create_run_with_params(db=db, run=run, exp_params=exp_params)
     return _serialize_run_detail(created_run)
+
 
 def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     """Validate and update run and experiment parameters for evaluation.
@@ -139,15 +137,15 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     if train_exp is None:
         raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
 
-    # Update run 
+    if train_exp.has_evaluation:
+        raise InvalidStateError("Experiment already evaluated")
+
+    # Update run
     train_exp.task_type = TaskType.train_evaluation
     run_repository.update_run(db=db, run=train_exp)
 
     # Update experiment params
     exp_params = train_exp.experiment_params
-
-    if exp_params.path_to_test is not None:
-        raise InvalidStateError("Experiment already evaluated")
 
     exp_params.path_to_test = evaluation_params.evaluation_data
     experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
@@ -160,10 +158,12 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
         "class_mapping": exp_params.class_mapping,
         "batch_size": exp_params.batch_size,
         "num_workers": exp_params.num_workers,
+        "device": exp_params.device,
         "gpu_index": exp_params.gpu_index,
     }
 
     return train_exp.id, exp_params_dict
+
 
 def _serialize_run(run) -> dict:
     """Serialize a Run ORM object into a base dictionary representation.
@@ -183,8 +183,10 @@ def _serialize_run(run) -> dict:
         "name": run.name,
         "description": run.description,
         "task_type": run.task_type,
+        "has_evaluation": run.has_evaluation,
         "created_at": run.created_at,
     }
+
 
 def _serialize_run_detail(run) -> dict:
     """Serialize a Run ORM object into a detailed dictionary representation.
@@ -216,9 +218,7 @@ def _serialize_run_detail(run) -> dict:
             }
             for loss in run.losses
         ],
-        "classification_report": (
-            run.classification_report.report if run.classification_report else None
-        ),
+        "classification_report": (run.classification_report.report if run.classification_report else None),
     }
     if run.experiment_params:
         exp = run.experiment_params

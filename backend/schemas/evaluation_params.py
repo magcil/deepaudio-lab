@@ -1,6 +1,6 @@
 # schemas/evaluation_params.py
 from deepaudiox.schemas.types import DeviceName
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 VALID_DEVICES: frozenset[str] = frozenset(DeviceName.__args__)
@@ -31,7 +31,7 @@ class EvaluationParams(BaseModel):
     train_name: str
     evaluation_data: str
     device: str = Field(default="cpu")
-    gpu_index: int | None = Field(default=0)
+    gpu_index: int | None = Field(default=None)
     workers: int = Field(default=2)
     batch_size: int = Field(default=8)
 
@@ -75,21 +75,18 @@ class EvaluationParams(BaseModel):
             raise ValueError(f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}")
         return v
 
-    @field_validator("gpu_index", mode="before")
-    @classmethod
-    def handle_null_gpu_index(cls, v) -> int:
-        """Ensure a valid GPU index is always set.
+    @model_validator(mode="after")
+    def clear_gpu_index_for_non_cuda(self) -> "EvaluationParams":
+        if self.device != "cuda":
+            self.gpu_index = None
+        return self
 
-        Converts ``None`` values (e.g. from JSON ``null``) into the
-        default GPU index ``0`` so downstream code can safely assume
-        an integer is always present.
 
-        Args:
-            v: Raw GPU index value from the request payload.
+class EvaluationOptionsResponse(BaseModel):
+    """Schema for the available evaluation device options."""
 
-        Returns:
-            int: A valid GPU index, defaulting to ``0`` when input is ``None``.
-        """
-        if v is None:
-            return 0
-        return v
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    gpu_indexes: list[int]
+    cuda_available: bool
+    mps_available: bool

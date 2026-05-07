@@ -7,32 +7,44 @@ DeepAudio-Lab: A simple app for easily prototyping deep learning models for audi
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Node.js & npm
+- [Docker](https://docs.docker.com/get-docker/)
 
-## Backend
+## Setup
 
-The backend is a FastAPI app managed with `uv`.
-
-### Setup
+### Backend dependencies
 
 ```bash
 cd backend
 uv sync
 ```
 
-Create a `.env` file inside `backend/` with your PostgreSQL connection string:
+### Frontend dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+### Environment
+
+Create a `.env` file inside `backend/`:
 
 ```
-DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<dbname>
+DATABASE_URL=postgresql://deepaudio:deepaudio@localhost:5432/deepaudio
 ```
 
-Start the PostgreSQL server using Docker before running the backend:
+## Running the app
+
+Start all services in the following order.
+
+### 1. PostgreSQL
 
 ```bash
 cd database
 docker compose up -d
 ```
 
-To stop it:
+To stop:
 
 ```bash
 docker compose down
@@ -40,7 +52,32 @@ docker compose down
 
 The database tables are created automatically on first startup.
 
-### Run
+### 2. Redis
+
+```bash
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+```
+
+To stop:
+
+```bash
+docker stop redis
+```
+
+### 3. Celery worker
+
+```bash
+cd backend
+uv run celery -A worker.app worker --loglevel=info --pool=solo
+```
+
+For auto-reload on code changes, install `watchfiles` and run:
+
+```bash
+uv run watchfiles "celery -A worker.app worker --loglevel=info --pool=solo" backend
+```
+
+### 4. Backend
 
 ```bash
 cd backend
@@ -49,9 +86,18 @@ uv run uvicorn api:app --host 127.0.0.1 --port 8000 --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
-### Development
+### 5. Frontend
 
-Install with dev dependencies (includes `pytest` and `ruff`):
+```bash
+cd frontend
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`.
+
+## Development
+
+Install backend dev dependencies (includes `pytest`, `ruff`, and type stubs):
 
 ```bash
 cd backend
@@ -69,23 +115,3 @@ Lint:
 ```bash
 uv run ruff check .
 ```
-
-## Frontend
-
-The frontend is a React + Vite app.
-
-### Setup
-
-```bash
-cd frontend
-npm install
-```
-
-### Run
-
-```bash
-cd frontend
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`.

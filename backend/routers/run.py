@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from exceptions.exceptions import EntityNotFoundError
+from repositories import run_repository
 from services import run_service
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
@@ -36,6 +37,23 @@ def get_train_runs(db: Session = Depends(get_db)):
         list[dict]: All runs with task_type 'train'.
     """
     return run_service.get_all(db, task_type="train")
+
+
+@router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_run(run_id: int, db: Session = Depends(get_db)):
+    """Delete a run and all its owned data.
+
+    Args:
+        run_id (int): Primary key of the run to delete.
+        db (Session, optional): SQLAlchemy session injected by FastAPI
+            via the ``get_db`` dependency.
+
+    Raises:
+        EntityNotFoundError: No run with the given ``run_id`` exists.
+    """
+    deleted = run_repository.delete(db, run_id)
+    if not deleted:
+        raise EntityNotFoundError("Run", run_id)
 
 
 @router.get("/{run_id}", status_code=status.HTTP_200_OK)

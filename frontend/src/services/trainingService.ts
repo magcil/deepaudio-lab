@@ -26,7 +26,7 @@ export interface TrainingPayload {
   learningRate?: number;
   workers?: number;
   batchSize?: number;
-  device: 'cpu' | 'gpu';
+  device: 'cpu' | 'gpu' | 'mps';
   gpuIndex: number | null;
 }
 
@@ -37,9 +37,15 @@ export interface TrainingResponse {
   message: string;
 }
 
-/** Submits a new training job to the backend. */
-export const startTraining = (payload: TrainingPayload): Promise<void> =>
-  client.post<void>('/train/', payload);
+// export const startTraining = (payload: TrainingPayload): Promise<TrainingResponse> =>
+//   client.post<TrainingResponse>('/train', payload);
+
+export interface StartTrainingResponse {
+  task_id: string
+}
+
+export const startTraining = (payload: TrainingPayload): Promise<StartTrainingResponse> =>
+  client.post<StartTrainingResponse>('/train/', payload);
 
 
 /** Available options for configuring a training job (backbones, pooling, GPUs). */
@@ -47,6 +53,8 @@ export interface TrainingOptions {
   backbones: string[];
   poolingMethods: string[];
   gpuIndexes: number[];
+  cudaAvailable: boolean;
+  mpsAvailable: boolean;
 }
 
 /** Fetches available training configuration options from the backend. */

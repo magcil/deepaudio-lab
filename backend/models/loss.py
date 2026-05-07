@@ -41,39 +41,14 @@ class Loss(Base):
     """
 
     __tablename__ = "loss"
-    id = Column(
-        Integer, 
-        primary_key=True, 
-        index=True, 
-        autoincrement=True
-    )
-    run_id = Column(
-        Integer, 
-        ForeignKey("run.id", ondelete="CASCADE"), 
-        nullable=False, 
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, index=True)
     loss = Column(Float, nullable=False)
     epoch = Column(Integer, nullable=False)
-    split_type = Column(
-        Enum(SplitType, native_enum=False), 
-        nullable=False
-    )
+    split_type = Column(Enum(SplitType, native_enum=False), nullable=False)
 
     # Define relationships
-    run = relationship(
-        "Run", 
-        back_populates="losses", 
-        foreign_keys=[run_id],
-        passive_deletes=True
-    )
+    run = relationship("Run", back_populates="losses", foreign_keys=[run_id], passive_deletes=True)
 
     # Apply uniqueness constraint
-    __table_args__ = (
-        UniqueConstraint(
-            "run_id",
-            "epoch",
-            "split_type",
-            name="uq_loss_run_epoch_split"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("run_id", "epoch", "split_type", name="uq_loss_run_epoch_split"),)
