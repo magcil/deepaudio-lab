@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getActiveTasks } from '../services/taskService';
 import type { ActiveTask } from '../services/taskService';
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 5000;
 
 function formatSeconds(s: number): string {
   const m = Math.floor(s / 60);
