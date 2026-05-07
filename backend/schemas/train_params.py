@@ -79,7 +79,6 @@ class TrainParams(BaseModel):
     class_mapping: str
     experiment_name: str = Field(min_length=1)
     description: str | None = Field(default=None)
-    
 
     @field_validator("pooling", mode="before")
     @classmethod

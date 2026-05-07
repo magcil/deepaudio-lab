@@ -62,9 +62,7 @@ class EvaluationService:
             device_index=exp_params["gpu_index"] if exp_params["device"] == "cuda" else None,
         )
 
-        model = AudioClassifier.from_checkpoint(
-            f"{exp_params['path_to_checkpoint']}.pt"
-        )
+        model = AudioClassifier.from_checkpoint(f"{exp_params['path_to_checkpoint']}.pt")
         model.to(device)
         model.eval()
 
@@ -115,8 +113,11 @@ class EvaluationService:
 
         self.logger.info("Inference complete. Computing classification report.")
 
-        return cast(dict, classification_report(
-            y_true=self.state.y_true,
-            y_pred=self.state.y_pred,
-            output_dict=True,
-        ))
+        return cast(
+            dict,
+            classification_report(
+                y_true=self.state.y_true,
+                y_pred=self.state.y_pred,
+                output_dict=True,
+            ),
+        )

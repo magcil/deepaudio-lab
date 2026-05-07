@@ -78,6 +78,7 @@ async def get_progress(task_id: str):
     Returns:
         StreamingResponse: SSE stream of task state and progress metadata.
     """
+
     async def event_stream():
         while True:
             result = AsyncResult(task_id, app=celery_app)

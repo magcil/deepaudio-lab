@@ -46,6 +46,7 @@ def get_by_id(db: Session, run_id: int) -> dict | None:
         return None
     return _serialize_run_detail(run)
 
+
 def register_train(db: Session, params: TrainParams) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
 
@@ -103,12 +104,9 @@ def register_train(db: Session, params: TrainParams) -> dict:
         gpu_index=params.gpu_index,
     )
 
-    created_run = run_repository.create_run_with_params(
-        db=db, 
-        run=run, 
-        exp_params=exp_params
-    )
+    created_run = run_repository.create_run_with_params(db=db, run=run, exp_params=exp_params)
     return _serialize_run_detail(created_run)
+
 
 def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     """Validate and update run and experiment parameters for evaluation.
@@ -166,6 +164,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
 
     return train_exp.id, exp_params_dict
 
+
 def _serialize_run(run) -> dict:
     """Serialize a Run ORM object into a base dictionary representation.
 
@@ -187,6 +186,7 @@ def _serialize_run(run) -> dict:
         "has_evaluation": run.has_evaluation,
         "created_at": run.created_at,
     }
+
 
 def _serialize_run_detail(run) -> dict:
     """Serialize a Run ORM object into a detailed dictionary representation.
@@ -218,9 +218,7 @@ def _serialize_run_detail(run) -> dict:
             }
             for loss in run.losses
         ],
-        "classification_report": (
-            run.classification_report.report if run.classification_report else None
-        ),
+        "classification_report": (run.classification_report.report if run.classification_report else None),
     }
     if run.experiment_params:
         exp = run.experiment_params

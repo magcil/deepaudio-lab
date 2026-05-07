@@ -22,19 +22,8 @@ class ClassificationReport(Base):
 
     __tablename__ = "classification_report"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    run_id = Column(
-        Integer, 
-        ForeignKey("run.id", ondelete="CASCADE"), 
-        nullable=False, 
-        unique=True, 
-        index=True
-    )
+    run_id = Column(Integer, ForeignKey("run.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     report = Column(JSON, nullable=False)
 
     # Define relationships
-    run = relationship(
-        "Run",
-        back_populates="classification_report",
-        foreign_keys=[run_id],
-        passive_deletes=True
-    )
+    run = relationship("Run", back_populates="classification_report", foreign_keys=[run_id], passive_deletes=True)

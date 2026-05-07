@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -8,9 +8,7 @@ from models.experiment_params import ExperimentParams
 from models.run import Run
 
 
-def create_run_with_params(
-    db: Session, run: Run, exp_params: ExperimentParams
-) -> Run:
+def create_run_with_params(db: Session, run: Run, exp_params: ExperimentParams) -> Run:
     """Create a Run together with its associated ExperimentParams in one transaction.
 
     Establishes a one-to-one relationship between Run and ExperimentParams and
@@ -127,7 +125,8 @@ def get_by_name(db: Session, name: str) -> Run | None:
         return db.query(Run).filter(Run.name == name).first()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by name '{name}'") from e
-    
+
+
 def get_by_type(db: Session, type: str) -> list[Run]:
     """Fetch all runs matching the given task type.
 
@@ -142,14 +141,13 @@ def get_by_type(db: Session, type: str) -> list[Run]:
         list[Run]: List of Run objects matching the given type.
     """
     try:
-        hasEvaluation = True if type == "evaluation" else False
+        hasEvaluation = type == "evaluation"
         return db.query(Run).filter(Run.has_evaluation == hasEvaluation).all()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch runs with task type '{type}'") from e
-    
-def update_run(
-    db: Session, run: Run
-) -> Run:
+
+
+def update_run(db: Session, run: Run) -> Run:
     """Commits any pending changes to the given Run instance and returns the refreshed object.
 
     Args:
@@ -170,6 +168,7 @@ def update_run(
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError("Failed to update run") from e
+
 
 def update_task_id(db: Session, run_id: int, task_id: str) -> None:
     """Attach a Celery task ID to an existing run.
@@ -207,7 +206,7 @@ def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
         list[Run]: Matching runs ordered by most recent first.
     """
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=within_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=within_hours)
         return (
             db.query(Run)
             .filter(Run.task_id.isnot(None), Run.created_at >= cutoff)

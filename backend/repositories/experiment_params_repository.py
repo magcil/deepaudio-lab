@@ -5,9 +5,7 @@ from exceptions.exceptions import RepositoryError
 from models.experiment_params import ExperimentParams
 
 
-def update_experiment_params(
-    db: Session, exp_params: ExperimentParams
-) -> ExperimentParams:
+def update_experiment_params(db: Session, exp_params: ExperimentParams) -> ExperimentParams:
     """Persist updates to an existing experiment parameters record.
 
     Assumes the provided ``exp_params`` instance is already attached to
