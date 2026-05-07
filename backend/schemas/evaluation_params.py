@@ -1,6 +1,6 @@
 # schemas/evaluation_params.py
 from deepaudiox.schemas.types import DeviceName
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 VALID_DEVICES: frozenset[str] = frozenset(DeviceName.__args__)
@@ -28,23 +28,28 @@ class EvaluationParams(BaseModel):
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True, alias_generator=to_camel)
 
+    train_name: str
     evaluation_data: str
-    sampling_rate: int = Field(default=16_000)
-    segment_duration: float | None = Field(default=None)
     device: str = Field(default="cpu")
-    gpu_index: int | None = Field(default=0)
+    gpu_index: int | None = Field(default=None)
     workers: int = Field(default=2)
-    model_checkpoint: str
-    num_classes: int
     batch_size: int = Field(default=8)
-    class_mapping: str
-    experiment_name: str = Field(min_length=1)
-    description: str | None = Field(default=None)
-    parent_run_name: str | None = Field(default=None)
 
     @field_validator("device", mode="before")
     @classmethod
     def normalize_device(cls, v: str) -> str:
+        """Normalize device aliases before validation.
+
+        Converts user-friendly or frontend-provided device names into
+        canonical values expected by the backend. Currently maps
+        ``"gpu"`` to ``"cuda"`` while leaving other values unchanged.
+
+        Args:
+            v (str): Raw device value provided in the request payload.
+
+        Returns:
+            str: Normalized device string to be validated in the next step.
+        """
         if v == "gpu":
             return "cuda"
         return v
@@ -52,13 +57,36 @@ class EvaluationParams(BaseModel):
     @field_validator("device")
     @classmethod
     def validate_device(cls, v: str) -> str:
+        """Validate that the device is supported.
+
+        Ensures the provided device matches one of the allowed values
+        defined in :data:`VALID_DEVICES`.
+
+        Args:
+            v (str): Normalized device string.
+
+        Raises:
+            ValueError: If the device is not supported.
+
+        Returns:
+            str: The validated device string.
+        """
         if v not in VALID_DEVICES:
             raise ValueError(f"Invalid device '{v}'. Must be one of: {sorted(VALID_DEVICES)}")
         return v
 
-    @field_validator("gpu_index", mode="before")
-    @classmethod
-    def handle_null_gpu_index(cls, v) -> int:
-        if v is None:
-            return 0
-        return v
+    @model_validator(mode="after")
+    def clear_gpu_index_for_non_cuda(self) -> "EvaluationParams":
+        if self.device != "cuda":
+            self.gpu_index = None
+        return self
+
+
+class EvaluationOptionsResponse(BaseModel):
+    """Schema for the available evaluation device options."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    gpu_indexes: list[int]
+    cuda_available: bool
+    mps_available: bool

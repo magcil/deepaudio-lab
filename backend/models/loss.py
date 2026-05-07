@@ -23,33 +23,21 @@ class SplitType(str, enum.Enum):
 
 
 class Loss(Base):
-    """Database model for a single loss value recorded during training or validation.
+    """Represents a single loss value recorded during training or validation.
 
-    One row per ``(run, epoch, split)`` combination — for example, a
-    typical training run with 10 epochs and both train and validation
-    splits produces 20 ``Loss`` rows. The uniqueness constraint on
-    ``(run_id, epoch, split_type)`` enforces this at the database
-    level, preventing accidental duplicates if a loss is logged twice.
+    Each record corresponds to a specific (run, epoch, split) combination,
+    allowing reconstruction of training and validation loss curves over time.
 
-    Linked many-to-one to a parent `Run`. Deleting the run
-    cascades to delete all of its loss rows, both via the ORM
-    relationship cascade on ``Run.losses`` and via ``ON DELETE CASCADE``
-    on the foreign key.
+    A uniqueness constraint ensures that only one loss value exists per
+    (run_id, epoch, split_type).
 
     Attributes:
-        id (int): Primary key, autoincremented.
-        run_id (int): Foreign key to ``run.id``. Indexed, since loss
-            rows are almost always queried by run (e.g. to plot a
-            training curve). Deleting the referenced run deletes this
-            row.
-        loss (float): The scalar loss value at this epoch and split.
-        epoch (int): The epoch number this loss corresponds to.
-        split_type (SplitType): Which dataset split the loss was
-            computed on (train or validation). Stored as a ``VARCHAR``
-            with a ``CHECK`` constraint rather than a native database
-            enum, for easier migration if new split types are added.
-        run (Run): The parent run this loss belongs to. Back-populated
-            from ``Run.losses``.
+        id (int): Primary key of the loss record.
+        run_id (int): Foreign key referencing the associated Run.
+        loss (float): Scalar loss value for the given epoch and split.
+        epoch (int): Training epoch number.
+        split_type (SplitType): Dataset split (train or validation).
+        run (Run): ORM relationship to the parent Run.
     """
 
     __tablename__ = "loss"
@@ -60,7 +48,7 @@ class Loss(Base):
     split_type = Column(Enum(SplitType, native_enum=False), nullable=False)
 
     # Define relationships
-    run = relationship("Run", back_populates="losses", foreign_keys=[run_id])
+    run = relationship("Run", back_populates="losses", foreign_keys=[run_id], passive_deletes=True)
 
     # Apply uniqueness constraint
     __table_args__ = (UniqueConstraint("run_id", "epoch", "split_type", name="uq_loss_run_epoch_split"),)

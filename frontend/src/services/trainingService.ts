@@ -1,9 +1,12 @@
 import client from '../api/client';
 
+/**
+ * Action service for triggering and configuring training jobs.
+ * Use this to start a new training run or fetch available model/hardware options.
+ * Completed training jobs appear as Run records retrievable via runService.
+ */
 
-
-
-// ------- For starting training job -------
+/** Payload for starting a new training job. */
 export interface TrainingPayload {
   // Data config
   trainingData: string;
@@ -23,10 +26,11 @@ export interface TrainingPayload {
   learningRate?: number;
   workers?: number;
   batchSize?: number;
-  device: 'cpu' | 'gpu';
+  device: 'cpu' | 'gpu' | 'mps';
   gpuIndex: number | null;
 }
 
+/** Response returned after submitting a training job. */
 export interface TrainingResponse {
   jobId: string;
   status: string;
@@ -36,17 +40,23 @@ export interface TrainingResponse {
 // export const startTraining = (payload: TrainingPayload): Promise<TrainingResponse> =>
 //   client.post<TrainingResponse>('/train', payload);
 
-export const startTraining = (payload: TrainingPayload): Promise<void> =>
-  client.post<void>('/train/', payload);
+export interface StartTrainingResponse {
+  task_id: string
+}
+
+export const startTraining = (payload: TrainingPayload): Promise<StartTrainingResponse> =>
+  client.post<StartTrainingResponse>('/train/', payload);
 
 
-// ---------- For fetching training options ----------
-
+/** Available options for configuring a training job (backbones, pooling, GPUs). */
 export interface TrainingOptions {
   backbones: string[];
   poolingMethods: string[];
   gpuIndexes: number[];
+  cudaAvailable: boolean;
+  mpsAvailable: boolean;
 }
 
+/** Fetches available training configuration options from the backend. */
 export const getTrainingOptions = (): Promise<TrainingOptions> =>
   client.get<TrainingOptions>('/train/options');

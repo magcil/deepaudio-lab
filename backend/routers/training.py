@@ -1,15 +1,20 @@
 # routers/training.py
-
-import threading
+import asyncio
+import json
 
 import torch
+from celery.result import AsyncResult
 from deepaudiox import AVAILABLE_BACKBONES, AVAILABLE_POOLING
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from db.session import get_db
+from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
-from services.training_service import TrainingService
+from services import run_service
+from worker.app import celery_app
+from worker.training import run_training
 
 router = APIRouter(prefix="/train", tags=["Training"])
 
@@ -32,14 +37,13 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
         dict: Acknowledgement payload with the run status, the assigned
         run name, and the persisted training parameters.
     """
-    service = TrainingService()
+    run_detail = run_service.register_train(db, params)
+    run_id = run_detail["id"]
+    class_mapping = run_detail["exp_params"]["class_mapping"]
+    task = run_training.delay(params.model_dump(), class_mapping, run_id)
+    run_repository.update_task_id(db, run_id, task.id)
 
-    run, train_params, class_mapping = service.register_run(db, params)
-
-    thread = threading.Thread(target=service.perform_training, args=(params, class_mapping, run.id))
-    thread.start()
-
-    return {"status": "started", "run_name": run.name, "train_params": train_params}
+    return {"task_id": task.id}
 
 
 @router.get("/options", response_model=TrainingOptionsResponse, status_code=status.HTTP_200_OK)
@@ -52,6 +56,30 @@ def get_training_options():
     backbones = list(AVAILABLE_BACKBONES)
     pooling_methods = list(AVAILABLE_POOLING)
 
-    gpu_indexes = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
+    cuda_available = torch.cuda.is_available()
+    mps_available = torch.backends.mps.is_available()
+    gpu_indexes = list(range(torch.cuda.device_count())) if cuda_available else []
 
-    return {"backbones": backbones, "pooling_methods": pooling_methods, "gpu_indexes": gpu_indexes}
+    return {
+        "backbones": backbones,
+        "pooling_methods": pooling_methods,
+        "gpu_indexes": gpu_indexes,
+        "cuda_available": cuda_available,
+        "mps_available": mps_available,
+    }
+
+
+@router.get("/progress/{task_id}")
+async def get_progress(task_id: str):
+    async def event_stream():
+        while True:
+            result = AsyncResult(task_id, app=celery_app)
+            info = result.info
+            if isinstance(info, Exception):
+                info = {"error": str(info)}
+            yield f"data: {json.dumps({'state': result.state, 'info': info})}\n\n"
+            if result.state in ("SUCCESS", "FAILURE", "REVOKED"):
+                break
+            await asyncio.sleep(2)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

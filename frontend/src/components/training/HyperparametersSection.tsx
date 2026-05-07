@@ -3,11 +3,20 @@ import type { TrainingFormData } from './TrainingForm'
 interface Props {
   values: Pick<TrainingFormData, 'epochs' | 'patience' | 'learningRate' | 'workers' | 'batchSize' | 'device' | 'gpuIndex'>
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
-  onDeviceChange: (device: 'cpu' | 'gpu') => void
+  onDeviceChange: (device: 'cpu' | 'gpu' | 'mps') => void
   gpuIndexes: number[]
+  cudaAvailable: boolean
+  mpsAvailable: boolean
 }
 
-export default function HyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes }: Props) {
+export default function HyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable }: Props) {
+  const deviceUnavailableMessage =
+    values.device === 'gpu' && !cudaAvailable
+      ? 'No CUDA GPU detected on this machine. Training will fall back to CPU.'
+      : values.device === 'mps' && !mpsAvailable
+      ? 'MPS is not available on this machine. Training will fall back to CPU.'
+      : null
+
   return (
     <div className="form-card">
       <h3 className="form-section-title">Hyperparameters</h3>
@@ -107,14 +116,25 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
               type="button"
               className={`toggle-btn ${values.device === 'gpu' ? 'active' : ''}`}
               onClick={() => onDeviceChange('gpu')}
-              // disabled={gpuIndexes.length === 0}
-              title={gpuIndexes.length === 0 ? 'No GPUs available' : undefined}
+              title={!cudaAvailable ? 'No CUDA GPU detected' : undefined}
             >
               GPU
+            </button>
+            <button
+              type="button"
+              className={`toggle-btn ${values.device === 'mps' ? 'active' : ''}`}
+              onClick={() => onDeviceChange('mps')}
+              title={!mpsAvailable ? 'MPS not available' : undefined}
+            >
+              MPS
             </button>
           </div>
         </div>
       </div>
+
+      {deviceUnavailableMessage && (
+        <p className="device-unavailable-msg">{deviceUnavailableMessage}</p>
+      )}
 
       {values.device === 'gpu' && (
         <div className="form-field">
