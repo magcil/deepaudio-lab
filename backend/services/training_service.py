@@ -157,7 +157,15 @@ class TrainingService:
                         eta = last_epoch_time * (trainer.epochs - epoch)
                         prev_elapsed = elapsed
                         progress_callback(
-                            epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
+                            epoch,
+                            trainer.epochs,
+                            train_loss,
+                            val_loss,
+                            trainer.state.lowest_loss,
+                            trainer.state.current_patience,
+                            params.patience,
+                            elapsed,
+                            eta,
                         )
             except Exception:
                 self.logger.exception("Training failed for run_id=%s", run_id)

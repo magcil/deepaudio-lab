@@ -70,7 +70,7 @@ class TrainParams(BaseModel):
     num_classes: int = Field(gt=0)
     checkpoint: str | None = Field(default=None)
     epochs: int = Field(default=10, gt=0)
-    patience: int = Field(default=5, ge=0)
+    patience: int = Field(default=0, ge=0)
     learning_rate: float = Field(default=1e-3, gt=0)
     workers: int = Field(default=2, ge=0)
     batch_size: int = Field(default=8, gt=0)

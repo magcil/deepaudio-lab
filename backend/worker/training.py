@@ -11,18 +11,24 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 @celery_app.task(bind=True)
 def run_training(self, params: dict, class_mapping: dict, run_id: int):
-    def progress_callback(epoch, total_epochs, train_loss, val_loss, best_val_loss, elapsed, eta):
+    def progress_callback(
+        epoch, total_epochs, train_loss, val_loss, best_val_loss, current_patience, total_patience, elapsed, eta
+    ):
         self.update_state(
             state="PROGRESS",
             meta={
                 "epoch": epoch,
                 "total_epochs": total_epochs,
-                "progress": round(epoch / total_epochs * 100, 1),
+                "progress": 100
+                if (total_patience and current_patience == total_patience)
+                else round(epoch / total_epochs * 100, 1),
                 "train_loss": train_loss,
                 "val_loss": val_loss,
                 "best_val_loss": best_val_loss,
                 "elapsed_seconds": int(elapsed),
                 "eta_seconds": int(eta),
+                "current_patience": current_patience,
+                "total_patience": total_patience,
             },
         )
 
