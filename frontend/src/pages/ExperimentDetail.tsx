@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getRunById, deleteRun } from '../services/runService'
 import type { RunDetail } from '../services/runService'
 import LossCharts from '../components/LossCharts'
+import ClassificationReport from '../components/ClassificationReport'
 import './Homepage.css'
 
 interface Props {
@@ -17,6 +18,7 @@ export default function ExperimentDetail({ id, onBack }: Props) {
   useEffect(() => {
     getRunById(id)
       .then((data) => {
+        console.log('Run detail response:', data)
         setRun(data)
       })
       .catch(() => setNotFound(true))
@@ -72,6 +74,12 @@ export default function ExperimentDetail({ id, onBack }: Props) {
         <section className="experiments-section">
           <h2 className="section-heading">Experiment Parameters</h2>
           <pre className="json-block">{JSON.stringify(run.exp_params, null, 2)}</pre>
+        </section>
+      )}
+      {run.classification_report && (
+        <section className="experiments-section">
+          <h2 className="section-heading">Evaluation Results</h2>
+          <ClassificationReport report={run.classification_report} />
         </section>
       )}
     </div>

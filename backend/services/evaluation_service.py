@@ -113,11 +113,16 @@ class EvaluationService:
 
         self.logger.info("Inference complete. Computing classification report.")
 
+        class_mapping = exp_params["class_mapping"]  # {name: index}
+        index_to_name = {v: k for k, v in class_mapping.items()}
+        target_names = [index_to_name[i] for i in range(len(class_mapping))]
+
         return cast(
             dict,
             classification_report(
                 y_true=self.state.y_true,
                 y_pred=self.state.y_pred,
+                target_names=target_names,
                 output_dict=True,
             ),
         )
