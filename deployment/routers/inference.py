@@ -8,7 +8,7 @@ import soundfile as sf
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends
 from fastapi import Request
 
-from deployment.services.inference_service import inference_on_file
+from deployment.services.inference_service import inference_on_wav
 
 router = APIRouter(prefix="/inference", tags=["Inference"])
 
@@ -39,22 +39,17 @@ async def inference(
             detail=f"Unsupported file format {suffix}. Allowed: {ALLOWED_EXTENSIONS}",
         )
 
-    # --- Save temp file ---
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(path.file, tmp)
-        tmp_path = Path(tmp.name)
-
     try:
         # --- Load audio for validation ---
         try:
-            data, sr = sf.read(tmp_path)
+            audio_waveform, sr = sf.read(path.file, dtype="float32")
         except Exception:
             raise HTTPException(
                 status_code=400,
                 detail="Could not read audio file. File may be corrupted or unsupported.",
             )
 
-        duration = len(data) / sr
+        duration = len(audio_waveform) / sr
 
         # --- Duration checks ---
         if duration < MIN_DURATION:
@@ -83,15 +78,14 @@ async def inference(
             )
 
         # --- Run inference ---
-        result = inference_on_file(
+        result = inference_on_wav(
             model=model,
             segment_duration=segment_duration,
-            sample_file=tmp_path,
+            audio_waveform=audio_waveform,
             sample_rate=sample_rate,
         )
 
         return {"result": result}
 
     finally:
-        tmp_path.unlink(missing_ok=True)
         await path.close()
