@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from models.run import EvaluationStatus, TrainingStatus
 from db.session import get_db
 from exceptions.exceptions import EntityNotFoundError
 from repositories import run_repository
@@ -36,7 +37,20 @@ def get_train_runs(db: Session = Depends(get_db)):
     Returns:
         list[dict]: All runs with task_type 'train'.
     """
-    return run_service.get_all(db, task_type="train")
+    unevaluated_runs = run_service.get(
+        db,
+        task_type="train",
+        training_status=TrainingStatus.success,
+        evaluation_status=None,
+    )
+    failed_evaluation_runs = run_service.get(
+        db,
+        task_type="train",
+        training_status=TrainingStatus.success,
+        evaluation_status=EvaluationStatus.failure,
+    )
+    return unevaluated_runs + failed_evaluation_runs
+
 
 
 @router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)

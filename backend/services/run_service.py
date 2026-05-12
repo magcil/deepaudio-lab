@@ -15,21 +15,33 @@ from models.run import Run, TaskType, TrainingStatus, EvaluationStatus
 from repositories import experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
+from models.run import EvaluationStatus
+from repositories.run_repository import update_evaluation_status
 
 
-def get_all(db: Session, task_type: str | None = None) -> list[dict]:
-    """Retrieve all runs, optionally filtered by task type.
-
+def get_all(db: Session) -> list[dict]:
+    """Retrieve all runs
     Args:
         db (Session): SQLAlchemy database session.
-        task_type (str | None): Optional task type to filter by.
-
     Returns:
         list[dict]: Serialized list of runs.
     """
-    runs = run_repository.get_by_type(db, task_type) if task_type else run_repository.get_all(db)
+    runs = run_repository.get_all(db)
     return [_serialize_run(run) for run in runs]
 
+
+def get(db: Session, **args) -> list[dict]:
+    """Retrieve runs filtered by dynamic Run fields.
+
+    Args:
+        db (Session): SQLAlchemy database session.
+        **args: Dynamic Run field/value filters. ``None`` values are ignored.
+
+    Returns:
+        list[dict]: Serialized list of matching runs.
+    """
+    runs = run_repository.get_query(db, **args)
+    return [_serialize_run(run) for run in runs]
 
 def get_by_id(db: Session, run_id: int) -> dict | None:
     """Retrieve a single run with full details.
@@ -80,8 +92,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
     run = Run(
         name=params.experiment_name,
         description=params.description,
-        task_type=TaskType.train,
-        training_status=TrainingStatus.pending
+        task_type=TaskType.train
     )
     exp_params = ExperimentParams(
         run=run,
@@ -140,9 +151,13 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
 
     if train_exp.has_evaluation:
         raise InvalidStateError("Experiment already evaluated")
+    
+    #update_evaluation_status(db=db, run_id=train_exp.id, evalutation_status=EvaluationStatus.pending)
 
     # Update run
     train_exp.task_type = TaskType.train_evaluation
+    train_exp.evaluation_status = EvaluationStatus.pending
+    train_exp.has_evaluation = True
     run_repository.update_run(db=db, run=train_exp)
 
     # Update experiment params

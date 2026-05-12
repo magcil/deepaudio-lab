@@ -6,11 +6,15 @@ from typing import cast
 
 import numpy as np
 import torch
+from exceptions.exceptions import ReferencedEntityNotFoundError
+from repositories import run_repository
+from db.session import SessionLocal
 from deepaudiox import AudioClassifier, audio_classification_dataset_from_dir
 from deepaudiox.utils.training_utils import get_device
 from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader
-
+from models.run import EvaluationStatus, TaskType
+from repositories.run_repository import update_evaluation_status
 
 @dataclass
 class EvaluationState:
@@ -39,7 +43,7 @@ class EvaluationService:
         self.state = EvaluationState()
         self.logger = logging.getLogger(__name__)
 
-    def perform_evaluation(self, exp_params: dict, progress_callback=None) -> dict:
+    def perform_evaluation(self, run_id: int, exp_params: dict, progress_callback=None) -> dict:
         """Execute the evaluation pipeline and return the classification report.
 
         Loads the model checkpoint, prepares the evaluation dataset,
@@ -57,67 +61,101 @@ class EvaluationService:
             dict: Classification report produced by sklearn, keyed by class
                 label with precision, recall, f1-score, and support.
         """
-        device = get_device(
-            device=exp_params["device"],
-            device_index=exp_params["gpu_index"] if exp_params["device"] == "cuda" else None,
-        )
+        try:
+            db = SessionLocal()
+            
+            device = get_device(
+                device=exp_params["device"],
+                device_index=exp_params["gpu_index"] if exp_params["device"] == "cuda" else None,
+            )
+            try:
+                update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
+            except:
+                self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                raise
+            
+            model = AudioClassifier.from_checkpoint(f"{exp_params['path_to_checkpoint']}.pt")
+            model.to(device)
+            model.eval()
 
-        model = AudioClassifier.from_checkpoint(f"{exp_params['path_to_checkpoint']}.pt")
-        model.to(device)
-        model.eval()
+            dataset = audio_classification_dataset_from_dir(
+                root_dir=exp_params["path_to_test"],
+                sample_rate=exp_params["sample_rate"],
+                segment_duration=exp_params["segment_duration"],
+                class_mapping=exp_params["class_mapping"],
+            )
 
-        dataset = audio_classification_dataset_from_dir(
-            root_dir=exp_params["path_to_test"],
-            sample_rate=exp_params["sample_rate"],
-            segment_duration=exp_params["segment_duration"],
-            class_mapping=exp_params["class_mapping"],
-        )
+            dataloader = DataLoader(
+                dataset,
+                batch_size=exp_params["batch_size"],
+                shuffle=False,
+                num_workers=exp_params["num_workers"],
+            )
 
-        dataloader = DataLoader(
-            dataset,
-            batch_size=exp_params["batch_size"],
-            shuffle=False,
-            num_workers=exp_params["num_workers"],
-        )
+            total_batches = len(dataloader)
+            y_true_batches, y_pred_batches, posterior_batches = [], [], []
 
-        total_batches = len(dataloader)
-        y_true_batches, y_pred_batches, posterior_batches = [], [], []
+            start_time = time.monotonic()
+            prev_elapsed = 0.0
 
-        start_time = time.monotonic()
-        prev_elapsed = 0.0
+            with torch.inference_mode():
+                for current_batch, batch in enumerate(dataloader, start=1):
+                    x = batch["feature"].to(device)
+                    y_true = batch["y_true"].cpu().numpy()
 
-        with torch.inference_mode():
-            for current_batch, batch in enumerate(dataloader, start=1):
-                x = batch["feature"].to(device)
-                y_true = batch["y_true"].cpu().numpy()
+                    inference = model.predict(x)
 
-                inference = model.predict(x)
+                    y_pred = np.array(inference["y_preds"], dtype=int)
+                    post = np.array(inference["posteriors"], dtype=float)
 
-                y_pred = np.array(inference["y_preds"], dtype=int)
-                post = np.array(inference["posteriors"], dtype=float)
+                    y_true_batches.append(y_true)
+                    y_pred_batches.append(y_pred)
+                    posterior_batches.append(post)
 
-                y_true_batches.append(y_true)
-                y_pred_batches.append(y_pred)
-                posterior_batches.append(post)
+                    if progress_callback is not None:
+                        elapsed = time.monotonic() - start_time
+                        batch_time = elapsed - prev_elapsed
+                        eta = batch_time * (total_batches - current_batch)
+                        prev_elapsed = elapsed
+                        progress_callback(current_batch, total_batches, elapsed, eta)
 
-                if progress_callback is not None:
-                    elapsed = time.monotonic() - start_time
-                    batch_time = elapsed - prev_elapsed
-                    eta = batch_time * (total_batches - current_batch)
-                    prev_elapsed = elapsed
-                    progress_callback(current_batch, total_batches, elapsed, eta)
+            self.state.y_true = np.concatenate(y_true_batches)
+            self.state.y_pred = np.concatenate(y_pred_batches)
+            self.state.posteriors = np.concatenate(posterior_batches)
 
-        self.state.y_true = np.concatenate(y_true_batches)
-        self.state.y_pred = np.concatenate(y_pred_batches)
-        self.state.posteriors = np.concatenate(posterior_batches)
+        except:
+            self.logger.info("Inference failed.")
+            try:
+                update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.failure)
+            except:
+                self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                raise
+            
+            # revert ha evaluation and train_evaluation flags when evaluation failure so eval can be rerun
+            train_exp = run_repository.get_by_id(db, run_id)
+            if train_exp is None:
+                raise ReferencedEntityNotFoundError("Run", run_id)
+            train_exp.task_type = TaskType.train
+            #TODO: CHECK WHETHER TO PUT NONE OR FAIL
+            train_exp.evaluation_status = EvaluationStatus.failure
+            train_exp.has_evaluation = False
+            run_repository.update_run(db=db, run=train_exp)
+            raise
 
-        self.logger.info("Inference complete. Computing classification report.")
-
-        return cast(
-            dict,
-            classification_report(
-                y_true=self.state.y_true,
-                y_pred=self.state.y_pred,
-                output_dict=True,
-            ),
-        )
+        else:
+            self.logger.info("Inference complete. Computing classification report.")
+            try:
+                update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.success)
+            except:
+                self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                raise
+            return cast(
+                dict,
+                classification_report(
+                    y_true=self.state.y_true,
+                    y_pred=self.state.y_pred,
+                    output_dict=True,
+                ),
+            )
+        finally:
+            db.close()

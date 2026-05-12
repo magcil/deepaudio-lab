@@ -41,9 +41,7 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
     run_id = run_detail["id"]
     class_mapping = run_detail["exp_params"]["class_mapping"]
     task = run_training.delay(params.model_dump(), class_mapping, run_id)
-    print("ENDPOINT INFO: task: ",task,type(task))
     run_repository.update_task_id(db, run_id, task.id)
-    run_repository.update_training_status(db, run_id, 'pending')
     return {"task_id": task.id}
 
 

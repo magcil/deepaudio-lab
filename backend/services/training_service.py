@@ -13,6 +13,8 @@ from db.session import SessionLocal
 from models.loss import Loss
 from repositories import loss_repository
 from schemas.train_params import TrainParams
+from repositories.run_repository import update_training_status
+from models.run import TrainingStatus
 
 
 class TrainingService:
@@ -70,6 +72,11 @@ class TrainingService:
         db = SessionLocal()
 
         try:
+            try:
+                update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
+            except:
+                self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                raise
             device = get_device(
                 device=params.device,
                 device_index=params.gpu_index if params.device == "cuda" else None,
@@ -160,10 +167,21 @@ class TrainingService:
                             epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
                         )
             except Exception:
+                try:
+                    update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
+                except:
+                    self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                    raise
                 self.logger.exception("Training failed for run_id=%s", run_id)
                 raise
-            finally:
+            else:
                 # Fire the "on_train_end" lifecycle hook
+                try:
+                    update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
+                except:
+                    self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                    raise
+            finally:    
                 for cb in trainer.callbacks:
                     cb.on_train_end(trainer)
         finally:

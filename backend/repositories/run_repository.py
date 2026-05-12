@@ -83,6 +83,47 @@ def get_all(db: Session) -> list[Run]:
         raise RepositoryError("Failed to fetch all runs") from e
 
 
+def get_query(db: Session, **filters) -> list[Run]:
+    """Retrieve runs filtered by dynamic Run fields.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        **filters: Dynamic Run field/value filters. ``None`` values are ignored.
+
+    Raises:
+        RepositoryError: If a filter field is invalid or the query fails.
+
+    Returns:
+        list[Run]: List of matching Run instances.
+    """
+    try:
+        query_filters = {}
+
+        for field, value in filters.items():
+            if value is None:
+                continue
+
+            column = Run.__mapper__.columns.get(field)
+            if column is None:
+                raise RepositoryError(f"Invalid query field '{field}' for Run")
+
+            enum_class = getattr(column.type, "enum_class", None)
+            if enum_class is not None and isinstance(value, str):
+                matched_value = next(
+                    (member for member in enum_class if value in {member.name, member.value}),
+                    None,
+                )
+                if matched_value is None:
+                    raise RepositoryError(f"Invalid value '{value}' for Run field '{field}'")
+                value = matched_value
+
+            query_filters[field] = value
+
+        return db.query(Run).filter_by(**query_filters).all()
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch runs with dynamic filters") from e
+
+
 def delete(db: Session, id: int) -> bool:
     """Delete a run by its primary key.
 

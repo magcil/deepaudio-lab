@@ -27,8 +27,9 @@ def run_evaluation(self, run_id: int, exp_params: dict):
         )
 
     service = EvaluationService()
-    report = service.perform_evaluation(exp_params, progress_callback=progress_callback)
+    report = service.perform_evaluation(run_id, exp_params, progress_callback=progress_callback)
 
+    #TODO: DECOUPLE DB COMMUNICATION FROM CELERY WORKER
     db = SessionLocal()
     try:
         classification_report_repository.create(
