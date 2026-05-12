@@ -61,6 +61,30 @@ body {
 }
 
 /* ── Activity Monitor ── */
+.btn-refresh {
+  background: #3b6fd4;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 20px;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: #4d7fe0;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
 .am-wrap {
   overflow-x: auto;
 }

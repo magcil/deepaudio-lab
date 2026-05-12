@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { getActiveTasks } from '../services/taskService';
 import type { ActiveTask } from '../services/taskService';
 
-const POLL_INTERVAL_MS = 5000;
 
 function formatSeconds(s: number): string {
   const m = Math.floor(s / 60);
@@ -83,24 +82,21 @@ function TaskRow({ task }: { task: ActiveTask }) {
 
 export default function ActivityMonitor() {
   const [tasks, setTasks] = useState<ActiveTask[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function poll() {
-      try {
-        const fetched = await getActiveTasks();
-        console.log('GET /tasks/ response:', fetched);
-        if (!cancelled) setTasks(fetched);
-      } catch {
-        // keep previous state on error
-      }
-      if (!cancelled) setTimeout(poll, POLL_INTERVAL_MS);
+  async function refresh() {
+    setLoading(true);
+    try {
+      const fetched = await getActiveTasks();
+      setTasks(fetched);
+    } catch {
+      // keep previous state on error
+    } finally {
+      setLoading(false);
     }
+  }
 
-    poll();
-    return () => { cancelled = true; };
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
   return (
     <div className="page-content">
@@ -109,6 +105,9 @@ export default function ActivityMonitor() {
       <p className="page-summary">
         Monitor running and completed training and evaluation tasks.
       </p>
+      <button onClick={refresh} disabled={loading} className="btn-refresh">
+        {loading ? 'Refreshing…' : 'Refresh'}
+      </button>
 
       <div className="am-wrap">
         {tasks.length === 0 ? (
