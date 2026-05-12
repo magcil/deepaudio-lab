@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from exceptions.exceptions import DuplicateEntityError, RepositoryError
 from models.experiment_params import ExperimentParams
-from models.run import Run
+from models.run import Run, TrainingStatus, EvaluationStatus
 
 
 def create_run_with_params(db: Session, run: Run, exp_params: ExperimentParams) -> Run:
@@ -190,6 +190,46 @@ def update_task_id(db: Session, run_id: int, task_id: str) -> None:
         db.rollback()
         raise RepositoryError(f"Failed to update task_id for run '{run_id}'") from e
 
+
+def update_training_status(db: Session, run_id: int, training_status: str) -> None:
+    """Update the training_status to an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        training_status (str): db trainining status.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.training_status = training_status
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update training_status for run '{run_id}'") from e
+    
+def update_evaluation_status(db: Session, run_id: int, evaluation_status: str) -> None:
+    """Update the training_status to an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        evaluation_status (str): db evaluation status.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.evaluation_status = evaluation_status
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update evaluation_status for run '{run_id}'") from e
 
 def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
     """Retrieve runs that have an associated Celery task, up to a time window.

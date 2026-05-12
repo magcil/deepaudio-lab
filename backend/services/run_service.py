@@ -11,7 +11,7 @@ from exceptions.exceptions import (
     ResourceNotFoundError,
 )
 from models.experiment_params import ExperimentParams
-from models.run import Run, TaskType
+from models.run import Run, TaskType, TrainingStatus, EvaluationStatus
 from repositories import experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
@@ -81,6 +81,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
         name=params.experiment_name,
         description=params.description,
         task_type=TaskType.train,
+        training_status=TrainingStatus.pending
     )
     exp_params = ExperimentParams(
         run=run,
