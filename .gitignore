@@ -219,3 +219,4 @@ deployment/pretrained_models/class_mapping.json
 blues.00080.wav
 
 *.DS_Store
+class_mapping.json
