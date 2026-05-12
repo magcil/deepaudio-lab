@@ -1,18 +1,22 @@
-from fastapi import FastAPI
-from deployment.routers.inference import router as inference_router
-from deepaudiox import AudioClassifier
-
-
+from contextlib import asynccontextmanager
 from pathlib import Path
+
+from deepaudiox import AudioClassifier
+from fastapi import FastAPI
+
+from routers.inference import router as inference_router
 
 BASE_DIR = Path(__file__).resolve().parent
 CHECKPOINT = BASE_DIR / "pretrained_models" / "checkpoint.pt"
 
-app = FastAPI(title="Audio Inference API")
 
-@app.on_event("startup")
-def load_model():
-    app.state.model = AudioClassifier.from_checkpoint(CHECKPOINT)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.model = AudioClassifier.from_checkpoint(str(CHECKPOINT))
+    yield
+
+
+app = FastAPI(title="Audio Inference API", lifespan=lifespan)
 
 
 @app.get("/")

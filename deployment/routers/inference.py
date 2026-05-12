@@ -1,6 +1,3 @@
-import json
-import shutil
-import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
@@ -8,7 +5,7 @@ import soundfile as sf
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends
 from fastapi import Request
 
-from deployment.services.inference_service import inference_on_wav
+from services.inference_service import inference_on_wav
 
 router = APIRouter(prefix="/inference", tags=["Inference"])
 
@@ -31,15 +28,15 @@ async def inference(
     model=Depends(get_model),
 ) -> Dict[str, Any]:
 
-    # --- File extension check ---
-    suffix = Path(path.filename or "").suffix.lower()
-    if suffix not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file format {suffix}. Allowed: {ALLOWED_EXTENSIONS}",
-        )
-
     try:
+        # --- File extension check ---
+        suffix = Path(path.filename or "").suffix.lower()
+        if suffix not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format {suffix}. Allowed: {ALLOWED_EXTENSIONS}",
+            )
+
         # --- Load audio for validation ---
         try:
             audio_waveform, sr = sf.read(path.file, dtype="float32")
