@@ -67,6 +67,11 @@ function TaskRow({ task }: { task: ActiveTask }) {
       <td className="am-mono am-num">{formatLoss(info?.val_loss)}</td>
       <td className="am-mono am-num">{formatLoss(info?.best_val_loss)}</td>
       <td className="am-mono am-num">
+        {task.task_type === 'train' && typeof info?.current_patience === 'number' && typeof info?.total_patience === 'number'
+          ? `${info.current_patience}/${info.total_patience}`
+          : '–'}
+      </td>
+      <td className="am-mono am-num">
         {typeof info?.elapsed_seconds === 'number' ? formatSeconds(info.elapsed_seconds) : '–'}
       </td>
       <td className="am-mono am-num">
@@ -120,6 +125,7 @@ export default function ActivityMonitor() {
                 <th>Train Loss</th>
                 <th>Val Loss</th>
                 <th>Best Val Loss</th>
+                <th>Patience</th>
                 <th>Elapsed</th>
                 <th>ETA</th>
               </tr>
