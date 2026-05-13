@@ -11,10 +11,10 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from db.session import SessionLocal
 from models.loss import Loss
-from repositories import loss_repository
-from schemas.train_params import TrainParams
-from repositories.run_repository import update_training_status
 from models.run import TrainingStatus
+from repositories import loss_repository
+from repositories.run_repository import update_training_status
+from schemas.train_params import TrainParams
 
 
 class TrainingService:
@@ -75,7 +75,7 @@ class TrainingService:
             try:
                 update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
             except:
-                self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                self.logger.exception("Failed to update status for run_id=%s", run_id)
                 raise
             device = get_device(
                 device=params.device,
@@ -157,6 +157,7 @@ class TrainingService:
                     )
 
                     self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
                     # Write on redis to update progress
                     if progress_callback is not None:
                         elapsed = time.monotonic() - start_time
@@ -167,21 +168,23 @@ class TrainingService:
                             epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
                         )
             except Exception:
+                # Update training status to failure
                 try:
                     update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
                 except:
-                    self.logger.exception("Failed ro update status for run_id=%s", run_id)
+                    self.logger.exception("Failed to update status for run_id=%s", run_id)
                     raise
                 self.logger.exception("Training failed for run_id=%s", run_id)
                 raise
             else:
-                # Fire the "on_train_end" lifecycle hook
+                # Update training status to success
                 try:
                     update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
                 except:
                     self.logger.exception("Failed ro update status for run_id=%s", run_id)
                     raise
             finally:    
+                # Fire the "on_train_end" lifecycle hook
                 for cb in trainer.callbacks:
                     cb.on_train_end(trainer)
         finally:

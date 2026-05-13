@@ -6,15 +6,17 @@ from typing import cast
 
 import numpy as np
 import torch
-from exceptions.exceptions import ReferencedEntityNotFoundError
-from repositories import run_repository
-from db.session import SessionLocal
 from deepaudiox import AudioClassifier, audio_classification_dataset_from_dir
 from deepaudiox.utils.training_utils import get_device
 from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader
+
+from db.session import SessionLocal
+from exceptions.exceptions import ReferencedEntityNotFoundError
 from models.run import EvaluationStatus, TaskType
+from repositories import run_repository
 from repositories.run_repository import update_evaluation_status
+
 
 @dataclass
 class EvaluationState:
@@ -125,22 +127,21 @@ class EvaluationService:
 
         except:
             self.logger.info("Inference failed.")
-            try:
-                update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.failure)
-            except:
-                self.logger.exception("Failed ro update status for run_id=%s", run_id)
-                raise
             
-            # revert ha evaluation and train_evaluation flags when evaluation failure so eval can be rerun
+            # Update run fields after failure
             train_exp = run_repository.get_by_id(db, run_id)
             if train_exp is None:
-                raise ReferencedEntityNotFoundError("Run", run_id)
+                raise ReferencedEntityNotFoundError("Run", run_id) from None
+            
             train_exp.task_type = TaskType.train
-            #TODO: CHECK WHETHER TO PUT NONE OR FAIL
             train_exp.evaluation_status = EvaluationStatus.failure
             train_exp.has_evaluation = False
-            run_repository.update_run(db=db, run=train_exp)
-            raise
+
+            try:
+                run_repository.update_run(db=db, run=train_exp)
+            except:
+                self.logger.exception("Failed to update fields for run_id=%s", run_id)
+                raise
 
         else:
             self.logger.info("Inference complete. Computing classification report.")
@@ -149,6 +150,7 @@ class EvaluationService:
             except:
                 self.logger.exception("Failed ro update status for run_id=%s", run_id)
                 raise
+            
             return cast(
                 dict,
                 classification_report(

@@ -6,6 +6,7 @@ from sqlalchemy.sql import func
 
 from db.session import Base
 
+
 class TaskType(str, enum.Enum):
     """Represents the type of execution task associated with a Run.
 
@@ -84,9 +85,14 @@ class Run(Base):
     has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     training_status: Mapped[TrainingStatus] = mapped_column(
-        Enum(TrainingStatus, native_enum=False), nullable=False, default=TrainingStatus.pending
+        Enum(TrainingStatus, native_enum=False), 
+        nullable=False, 
+        default=TrainingStatus.pending
     )
-    evaluation_status: Mapped[EvaluationStatus] = mapped_column(Enum(EvaluationStatus, native_enum=False), nullable=True)
+    evaluation_status: Mapped[EvaluationStatus] = mapped_column(
+        Enum(EvaluationStatus, native_enum=False), 
+        nullable=True
+    )
     
     # Define relationships
     experiment_params = relationship(

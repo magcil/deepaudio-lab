@@ -11,12 +11,10 @@ from exceptions.exceptions import (
     ResourceNotFoundError,
 )
 from models.experiment_params import ExperimentParams
-from models.run import Run, TaskType, TrainingStatus, EvaluationStatus
+from models.run import EvaluationStatus, Run, TaskType
 from repositories import experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
-from models.run import EvaluationStatus
-from repositories.run_repository import update_evaluation_status
 
 
 def get_all(db: Session) -> list[dict]:
@@ -152,9 +150,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     if train_exp.has_evaluation:
         raise InvalidStateError("Experiment already evaluated")
     
-    #update_evaluation_status(db=db, run_id=train_exp.id, evalutation_status=EvaluationStatus.pending)
-
-    # Update run
+    # Update run fields
     train_exp.task_type = TaskType.train_evaluation
     train_exp.evaluation_status = EvaluationStatus.pending
     train_exp.has_evaluation = True

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from exceptions.exceptions import DuplicateEntityError, RepositoryError
 from models.experiment_params import ExperimentParams
-from models.run import Run, TrainingStatus, EvaluationStatus
+from models.run import Run
 
 
 def create_run_with_params(db: Session, run: Run, exp_params: ExperimentParams) -> Run:
