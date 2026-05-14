@@ -37,19 +37,14 @@ def get_train_runs(db: Session = Depends(get_db)):
     Returns:
         list[dict]: All runs with task_type 'train'.
     """
-    unevaluated_runs = run_service.get(
+    train_runs = run_service.get(
         db,
         task_type="train",
         training_status=TrainingStatus.success,
-        evaluation_status=None,
+        evaluation_status=[None, EvaluationStatus.failure]
     )
-    failed_evaluation_runs = run_service.get(
-        db,
-        task_type="train",
-        training_status=TrainingStatus.success,
-        evaluation_status=EvaluationStatus.failure,
-    )
-    return unevaluated_runs + failed_evaluation_runs
+
+    return train_runs
 
 
 

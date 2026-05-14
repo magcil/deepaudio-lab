@@ -28,17 +28,17 @@ def get_all(db: Session) -> list[dict]:
     return [_serialize_run(run) for run in runs]
 
 
-def get(db: Session, **args) -> list[dict]:
+def get(db: Session, **filters) -> list[dict]:
     """Retrieve runs filtered by dynamic Run fields.
 
     Args:
         db (Session): SQLAlchemy database session.
-        **args: Dynamic Run field/value filters. ``None`` values are ignored.
+        **filters: Dynamic Run field/value filters. ``None`` values are ignored.
 
     Returns:
         list[dict]: Serialized list of matching runs.
     """
-    runs = run_repository.get_query(db, **args)
+    runs = run_repository.get_query(db, **filters)
     return [_serialize_run(run) for run in runs]
 
 def get_by_id(db: Session, run_id: int) -> dict | None:

@@ -70,11 +70,8 @@ class EvaluationService:
                 device=exp_params["device"],
                 device_index=exp_params["gpu_index"] if exp_params["device"] == "cuda" else None,
             )
-            try:
-                update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
-            except:
-                self.logger.exception("Failed ro update status for run_id=%s", run_id)
-                raise
+            
+            update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
             
             model = AudioClassifier.from_checkpoint(f"{exp_params['path_to_checkpoint']}.pt")
             model.to(device)
@@ -125,7 +122,7 @@ class EvaluationService:
             self.state.y_pred = np.concatenate(y_pred_batches)
             self.state.posteriors = np.concatenate(posterior_batches)
 
-        except:
+        except Exception:
             self.logger.info("Inference failed.")
             
             # Update run fields after failure
@@ -137,19 +134,11 @@ class EvaluationService:
             train_exp.evaluation_status = EvaluationStatus.failure
             train_exp.has_evaluation = False
 
-            try:
-                run_repository.update_run(db=db, run=train_exp)
-            except:
-                self.logger.exception("Failed to update fields for run_id=%s", run_id)
-                raise
-
+            run_repository.update_run(db=db, run=train_exp)
+            
         else:
             self.logger.info("Inference complete. Computing classification report.")
-            try:
-                update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.success)
-            except:
-                self.logger.exception("Failed ro update status for run_id=%s", run_id)
-                raise
+            update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.success)
             
             return cast(
                 dict,

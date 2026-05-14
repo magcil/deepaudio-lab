@@ -72,11 +72,8 @@ class TrainingService:
         db = SessionLocal()
 
         try:
-            try:
-                update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
-            except:
-                self.logger.exception("Failed to update status for run_id=%s", run_id)
-                raise
+            update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
+            
             device = get_device(
                 device=params.device,
                 device_index=params.gpu_index if params.device == "cuda" else None,
@@ -138,55 +135,46 @@ class TrainingService:
             for cb in trainer.callbacks:
                 cb.on_train_start(trainer)
 
-            # Perform training loop
-            try:
-                start_time = time.monotonic()
-                prev_elapsed = 0.0
-                for epoch in range(1, trainer.epochs + 1):
-                    if trainer.state.early_stop:
-                        self.logger.info("Early stopping triggered. Halting training.")
-                        break
+        
+            start_time = time.monotonic()
+            prev_elapsed = 0.0
+            for epoch in range(1, trainer.epochs + 1):
+                if trainer.state.early_stop:
+                    self.logger.info("Early stopping triggered. Halting training.")
+                    break
 
-                    # Update the trainer's internal state
-                    trainer.state.current_epoch = epoch
-                    train_loss, val_loss = trainer.epoch_step()
+                # Update the trainer's internal state
+                trainer.state.current_epoch = epoch
+                train_loss, val_loss = trainer.epoch_step()
 
-                    # Save train and validation losses
-                    _ = self.register_losses(
-                        db=db, train_loss=train_loss, validation_loss=val_loss, epoch=epoch, run_id=run_id
+                # Save train and validation losses
+                _ = self.register_losses(
+                    db=db, train_loss=train_loss, validation_loss=val_loss, epoch=epoch, run_id=run_id
+                )
+
+                self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
+                # Write on redis to update progress
+                if progress_callback is not None:
+                    elapsed = time.monotonic() - start_time
+                    last_epoch_time = elapsed - prev_elapsed
+                    eta = last_epoch_time * (trainer.epochs - epoch)
+                    prev_elapsed = elapsed
+                    progress_callback(
+                        epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
                     )
 
-                    self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
-
-                    # Write on redis to update progress
-                    if progress_callback is not None:
-                        elapsed = time.monotonic() - start_time
-                        last_epoch_time = elapsed - prev_elapsed
-                        eta = last_epoch_time * (trainer.epochs - epoch)
-                        prev_elapsed = elapsed
-                        progress_callback(
-                            epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
-                        )
-            except Exception:
-                # Update training status to failure
-                try:
-                    update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
-                except:
-                    self.logger.exception("Failed to update status for run_id=%s", run_id)
-                    raise
-                self.logger.exception("Training failed for run_id=%s", run_id)
-                raise
-            else:
-                # Update training status to success
-                try:
-                    update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
-                except:
-                    self.logger.exception("Failed ro update status for run_id=%s", run_id)
-                    raise
-            finally:    
-                # Fire the "on_train_end" lifecycle hook
-                for cb in trainer.callbacks:
-                    cb.on_train_end(trainer)
-        finally:
-            db.close()
+            # Fire the "on_train_end" lifecycle hook
+            for cb in trainer.callbacks:
+                cb.on_train_end(trainer)
+        except Exception:
+            # Update training status to failure
+            update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
+            self.logger.exception("Training failed for run_id=%s", run_id)
+            raise
+        else:
+            # Update training status to success
+            update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
             self.logger.info("Training process complete.")
+        finally:    
+            db.close()
