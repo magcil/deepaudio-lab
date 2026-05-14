@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from exceptions.exceptions import EntityNotFoundError
+from models.run import EvaluationStatus, TrainingStatus
 from repositories import run_repository
 from services import run_service
 
@@ -36,7 +37,15 @@ def get_train_runs(db: Session = Depends(get_db)):
     Returns:
         list[dict]: All runs with task_type 'train'.
     """
-    return run_service.get_all(db, task_type="train")
+    train_runs = run_service.get(
+        db,
+        task_type="train",
+        training_status=TrainingStatus.success,
+        evaluation_status=[None, EvaluationStatus.failure]
+    )
+
+    return train_runs
+
 
 
 @router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)

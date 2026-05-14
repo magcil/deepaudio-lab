@@ -75,6 +75,11 @@ function TaskRow({ task }: { task: ActiveTask }) {
       <td className="am-mono am-num">
         {typeof info?.eta_seconds === 'number' ? formatSeconds(info.eta_seconds) : '–'}
       </td>
+      <td className="am-mono am-num">
+        {task.task_type === 'train' && typeof info?.current_patience === 'number' && typeof info?.total_patience === 'number'
+          ? `${info.current_patience} / ${info.total_patience}`
+          : '–'}
+      </td>
     </tr>
   );
 }
@@ -83,7 +88,7 @@ export default function ActivityMonitor() {
   const [tasks, setTasks] = useState<ActiveTask[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function fetchTasks() {
+  async function refresh() {
     setLoading(true);
     try {
       const fetched = await getActiveTasks();
@@ -95,7 +100,7 @@ export default function ActivityMonitor() {
     }
   }
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => { refresh(); }, []);
 
   return (
     <div className="page-content">
@@ -104,12 +109,9 @@ export default function ActivityMonitor() {
       <p className="page-summary">
         Monitor running and completed training and evaluation tasks.
       </p>
-
-      <div className="am-toolbar">
-        <button className="am-refresh-btn" onClick={fetchTasks} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh Results'}
-        </button>
-      </div>
+      <button onClick={refresh} disabled={loading} className="btn-refresh">
+        {loading ? 'Refreshing…' : 'Refresh'}
+      </button>
 
       <div className="am-wrap">
         {tasks.length === 0 ? (
@@ -129,6 +131,7 @@ export default function ActivityMonitor() {
                 <th>Patience</th>
                 <th>Elapsed</th>
                 <th>ETA</th>
+                <th>Patience</th>
               </tr>
             </thead>
             <tbody>

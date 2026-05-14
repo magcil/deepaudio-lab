@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -82,6 +84,62 @@ def get_all(db: Session) -> list[Run]:
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to fetch all runs") from e
 
+
+def get_query(db: Session, **filters) -> list[Run]:
+    """Retrieve runs filtered by dynamic Run fields.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        **filters: Dynamic Run field/value filters.
+            - ``None`` (scalar): ignore this filter entirely.
+            - ``[None]``: match rows where field IS NULL.
+            - ``[None, X]``: match rows where field IS NULL OR field = X.
+
+    Raises:
+        RepositoryError: If a filter field is invalid or the query fails.
+
+    Returns:
+        list[Run]: List of matching Run instances.
+    """
+    try:
+        conditions = []
+
+        for field, value in filters.items():
+            if value is None:
+                continue
+
+            column = Run.__mapper__.columns.get(field)
+            if column is None:
+                raise RepositoryError(f"Invalid query field '{field}' for Run")
+
+            values = value if isinstance(value, list) else [value]
+
+            if isinstance(column.type, SQLAlchemyEnum):
+                values = [
+                    _coerce_enum(v, column.type.enum_class, field) if v is not None else None
+                    for v in values
+                ]
+
+            col_attr = getattr(Run, field)
+            none_values = [v for v in values if v is None]
+            real_values = [v for v in values if v is not None]
+
+            clauses = []
+            if none_values:
+                clauses.append(col_attr.is_(None))
+            if real_values:
+                clauses.append(
+                    col_attr.in_(real_values) if len(real_values) > 1 else col_attr == real_values[0]
+                )
+
+            conditions.append(or_(*clauses))
+
+        return db.query(Run).filter(*conditions).all()
+
+    except RepositoryError:
+        raise
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch runs with dynamic filters") from e
 
 def delete(db: Session, id: int) -> bool:
     """Delete a run by its primary key.
@@ -191,6 +249,46 @@ def update_task_id(db: Session, run_id: int, task_id: str) -> None:
         raise RepositoryError(f"Failed to update task_id for run '{run_id}'") from e
 
 
+def update_training_status(db: Session, run_id: int, training_status: str) -> None:
+    """Update the training_status to an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        training_status (str): db trainining status.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.training_status = training_status
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update training_status for run '{run_id}'") from e
+    
+def update_evaluation_status(db: Session, run_id: int, evaluation_status: str) -> None:
+    """Update the training_status to an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        evaluation_status (str): db evaluation status.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.evaluation_status = evaluation_status
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update evaluation_status for run '{run_id}'") from e
+
 def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
     """Retrieve runs that have an associated Celery task, up to a time window.
 
@@ -215,3 +313,34 @@ def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
         )
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to fetch runs with task IDs") from e
+
+
+def _coerce_enum(value: str, enum_class, field: str):
+    """Coerce a string to an enum member by name or value.
+
+    Attempts to match the string against enum member names first (e.g.
+    ``'success'`` → ``TrainingStatus['success']``), then against member
+    values (e.g. ``'SUCCESS'`` → ``TrainingStatus('SUCCESS')``). Non-string
+    values are returned as-is.
+
+    Args:
+        value (str): The raw string to coerce.
+        enum_class: The enum class to coerce into.
+        field (str): The Run field name; used in the error message.
+
+    Raises:
+        RepositoryError: If the string does not match any enum member by
+            name or value.
+
+    Returns:
+        The matching enum member, or ``value`` unchanged if it is not a string.
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        return enum_class[value]
+    except KeyError:
+        try:
+            return enum_class(value)
+        except ValueError:
+            raise RepositoryError(f"Invalid value '{value}' for Run field '{field}'") from None

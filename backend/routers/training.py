@@ -42,7 +42,6 @@ def train(params: TrainParams, db: Session = Depends(get_db)):
     class_mapping = run_detail["exp_params"]["class_mapping"]
     task = run_training.delay(params.model_dump(), class_mapping, run_id)
     run_repository.update_task_id(db, run_id, task.id)
-
     return {"task_id": task.id}
 
 

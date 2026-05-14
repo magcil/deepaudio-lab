@@ -19,6 +19,36 @@ class TaskType(str, enum.Enum):
 
     train = "train"
     train_evaluation = "evaluation"
+    
+class TrainingStatus(str, enum.Enum):
+    """Represents the lifecycle state of a training run.
+
+    Attributes:
+        pending: Training has been created but not started yet.
+        progress: Training is currently running.
+        failure: Training finished with an error.
+        success: Training completed successfully.
+    """
+
+    pending = 'Pending'
+    progress = 'In Progress'
+    failure = 'Failed'
+    success = 'Successful'
+
+class EvaluationStatus(str, enum.Enum):
+    """Represents the lifecycle state of an evaluation run.
+
+    Attributes:
+        pending: Evaluation has been created but not started yet.
+        progress: Evaluation is currently running.
+        failure: Evaluation finished with an error.
+        success: Evaluation completed successfully.
+    """
+
+    pending = 'Pending'
+    progress = 'In Progress'
+    failure = 'Failed'
+    success = 'Successful'
 
 
 class Run(Base):
@@ -33,7 +63,10 @@ class Run(Base):
         name (str): Unique name identifying the run.
         description (str | None): Optional human-readable description.
         task_type (TaskType): Type of run (training or evaluation).
+        task_id (str | None): Optional external task identifier for async execution.
         created_at (datetime): Timestamp when the run was created.
+        training_status (TrainingStatus): Current lifecycle state of the training flow.
+        evaluation_status (EvaluationStatus): Current lifecycle state of the evaluation flow.
 
         experiment_params (ExperimentParams): One-to-one relationship
             containing training configuration and dataset paths.
@@ -51,7 +84,16 @@ class Run(Base):
     task_id = Column(String, nullable=True, index=True)
     has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
+    training_status: Mapped[TrainingStatus] = mapped_column(
+        Enum(TrainingStatus, native_enum=False), 
+        nullable=False, 
+        default=TrainingStatus.pending
+    )
+    evaluation_status: Mapped[EvaluationStatus] = mapped_column(
+        Enum(EvaluationStatus, native_enum=False), 
+        nullable=True
+    )
+    
     # Define relationships
     experiment_params = relationship(
         "ExperimentParams", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True
