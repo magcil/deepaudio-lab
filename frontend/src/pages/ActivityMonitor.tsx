@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { getActiveTasks } from '../services/taskService';
 import type { ActiveTask } from '../services/taskService';
 
-const POLL_INTERVAL_MS = 5000;
-
 function formatSeconds(s: number): string {
   const m = Math.floor(s / 60);
   const sec = s % 60;
@@ -67,6 +65,11 @@ function TaskRow({ task }: { task: ActiveTask }) {
       <td className="am-mono am-num">{formatLoss(info?.val_loss)}</td>
       <td className="am-mono am-num">{formatLoss(info?.best_val_loss)}</td>
       <td className="am-mono am-num">
+        {task.task_type === 'train' && typeof info?.current_patience === 'number' && typeof info?.total_patience === 'number'
+          ? `${info.current_patience}/${info.total_patience}`
+          : '–'}
+      </td>
+      <td className="am-mono am-num">
         {typeof info?.elapsed_seconds === 'number' ? formatSeconds(info.elapsed_seconds) : '–'}
       </td>
       <td className="am-mono am-num">
@@ -78,24 +81,21 @@ function TaskRow({ task }: { task: ActiveTask }) {
 
 export default function ActivityMonitor() {
   const [tasks, setTasks] = useState<ActiveTask[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function poll() {
-      try {
-        const fetched = await getActiveTasks();
-        console.log('GET /tasks/ response:', fetched);
-        if (!cancelled) setTasks(fetched);
-      } catch {
-        // keep previous state on error
-      }
-      if (!cancelled) setTimeout(poll, POLL_INTERVAL_MS);
+  async function fetchTasks() {
+    setLoading(true);
+    try {
+      const fetched = await getActiveTasks();
+      setTasks(fetched);
+    } catch {
+      // keep previous state on error
+    } finally {
+      setLoading(false);
     }
+  }
 
-    poll();
-    return () => { cancelled = true; };
-  }, []);
+  useEffect(() => { fetchTasks(); }, []);
 
   return (
     <div className="page-content">
@@ -104,6 +104,12 @@ export default function ActivityMonitor() {
       <p className="page-summary">
         Monitor running and completed training and evaluation tasks.
       </p>
+
+      <div className="am-toolbar">
+        <button className="am-refresh-btn" onClick={fetchTasks} disabled={loading}>
+          {loading ? 'Loading…' : 'Refresh Results'}
+        </button>
+      </div>
 
       <div className="am-wrap">
         {tasks.length === 0 ? (
@@ -120,6 +126,7 @@ export default function ActivityMonitor() {
                 <th>Train Loss</th>
                 <th>Val Loss</th>
                 <th>Best Val Loss</th>
+                <th>Patience</th>
                 <th>Elapsed</th>
                 <th>ETA</th>
               </tr>
