@@ -63,8 +63,9 @@ class EvaluationService:
             dict: Classification report produced by sklearn, keyed by class
                 label with precision, recall, f1-score, and support.
         """
+        db = SessionLocal()
+        
         try:
-            db = SessionLocal()
             
             device = get_device(
                 device=exp_params["device"],
