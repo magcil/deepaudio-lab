@@ -153,7 +153,6 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     # Update run fields
     train_exp.task_type = TaskType.train_evaluation
     train_exp.evaluation_status = EvaluationStatus.pending
-    train_exp.has_evaluation = True
     run_repository.update_run(db=db, run=train_exp)
 
     # Update experiment params

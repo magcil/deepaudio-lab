@@ -45,7 +45,7 @@ class EvaluationService:
         self.state = EvaluationState()
         self.logger = logging.getLogger(__name__)
 
-    def perform_evaluation(self, run_id: int, exp_params: dict, progress_callback=None) -> dict:
+    def perform_evaluation(self, run_id: int, exp_params: dict, progress_callback=None):
         """Execute the evaluation pipeline and return the classification report.
 
         Loads the model checkpoint, prepares the evaluation dataset,
@@ -141,12 +141,26 @@ class EvaluationService:
             self.logger.info("Inference complete. Computing classification report.")
             update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.success)
             
+            # Update run fields after success - set hasEvaluation to True
+            train_exp = run_repository.get_by_id(db, run_id)
+            if train_exp is None:
+                raise ReferencedEntityNotFoundError("Run", run_id) from None
+            
+            train_exp.has_evaluation = True
+            
+            run_repository.update_run(db=db, run=train_exp)
+            
+            class_mapping = exp_params["class_mapping"]  # {name: index}
+            index_to_name = {v: k for k, v in class_mapping.items()}
+            target_names = [index_to_name[i] for i in range(len(class_mapping))]
+            
             return cast(
                 dict,
                 classification_report(
                     y_true=self.state.y_true,
                     y_pred=self.state.y_pred,
                     output_dict=True,
+                    target_names=target_names
                 ),
             )
         finally:

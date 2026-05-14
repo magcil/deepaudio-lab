@@ -42,7 +42,10 @@ export default function EvaluationForm() {
       .catch(console.error)
 
     getTrainRuns()
-      .then(setTrainRuns)
+      .then(runs => {
+        console.log('Train runs:', runs)
+        setTrainRuns(runs)
+      })
       .catch(console.error)
   }, [])
 

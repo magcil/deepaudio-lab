@@ -153,7 +153,6 @@ class TrainingService:
                 )
 
                 self.logger.info(f"Epoch {epoch} stats: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
-
                 # Write on redis to update progress
                 if progress_callback is not None:
                     elapsed = time.monotonic() - start_time
@@ -161,9 +160,16 @@ class TrainingService:
                     eta = last_epoch_time * (trainer.epochs - epoch)
                     prev_elapsed = elapsed
                     progress_callback(
-                        epoch, trainer.epochs, train_loss, val_loss, trainer.state.lowest_loss, elapsed, eta
+                        epoch,
+                        trainer.epochs,
+                        train_loss,
+                        val_loss,
+                        trainer.state.lowest_loss,
+                        trainer.state.current_patience,
+                        params.patience,
+                        elapsed,
+                        eta,
                     )
-
             # Fire the "on_train_end" lifecycle hook
             for cb in trainer.callbacks:
                 cb.on_train_end(trainer)
@@ -173,7 +179,7 @@ class TrainingService:
                 update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
             except Exception:
                 self.logger.exception("Also failed to mark run_id=%s as failure", run_id)
-            raise                                          # don't swallow
+            raise                                          # don't swallow                                    # don't swallow
         else:
             # Update training status to success
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
