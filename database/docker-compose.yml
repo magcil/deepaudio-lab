@@ -11,6 +11,23 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-mini
+    restart: unless-stopped
+    ports:
+      - "9333:9333" # Master server
+      - "23646:23646" # Admin UI
+      - "8888:8888" # Filer server
+      - "8333:8333" # S3 API
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: secret
+      S3_BUCKET: raw-audios, checkpoints
+    volumes:
+      - seaweedfs_data:/data
 
 volumes:
   postgres_data:
+  seaweedfs_data:
