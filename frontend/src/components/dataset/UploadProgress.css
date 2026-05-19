@@ -1,0 +1,27 @@
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.upload-progress-track {
+  width: 220px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: #3b6fd4;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress-label {
+  font-size: 13px;
+  color: #9fb5d1;
+  white-space: nowrap;
+}
