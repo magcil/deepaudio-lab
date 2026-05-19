@@ -64,16 +64,15 @@ class EvaluationService:
                 label with precision, recall, f1-score, and support.
         """
         db = SessionLocal()
-        
+
         try:
-            
             device = get_device(
                 device=exp_params["device"],
                 device_index=exp_params["gpu_index"] if exp_params["device"] == "cuda" else None,
             )
-            
+
             update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
-            
+
             model = AudioClassifier.from_checkpoint(f"{exp_params['path_to_checkpoint']}.pt")
             model.to(device)
             model.eval()
@@ -125,42 +124,39 @@ class EvaluationService:
 
         except Exception:
             self.logger.info("Inference failed.")
-            
+
             # Update run fields after failure
             train_exp = run_repository.get_by_id(db, run_id)
             if train_exp is None:
                 raise ReferencedEntityNotFoundError("Run", run_id) from None
-            
+
             train_exp.task_type = TaskType.train
             train_exp.evaluation_status = EvaluationStatus.failure
             train_exp.has_evaluation = False
 
             run_repository.update_run(db=db, run=train_exp)
-            
+
         else:
             self.logger.info("Inference complete. Computing classification report.")
             update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.success)
-            
+
             # Update run fields after success - set hasEvaluation to True
             train_exp = run_repository.get_by_id(db, run_id)
             if train_exp is None:
                 raise ReferencedEntityNotFoundError("Run", run_id) from None
-            
+
             train_exp.has_evaluation = True
-            
+
             run_repository.update_run(db=db, run=train_exp)
-            
+
             class_mapping = exp_params["class_mapping"]  # {name: index}
             index_to_name = {v: k for k, v in class_mapping.items()}
             target_names = [index_to_name[i] for i in range(len(class_mapping))]
-            
+
             return cast(
                 dict,
                 classification_report(
-                    y_true=self.state.y_true,
-                    y_pred=self.state.y_pred,
-                    output_dict=True,
-                    target_names=target_names
+                    y_true=self.state.y_true, y_pred=self.state.y_pred, output_dict=True, target_names=target_names
                 ),
             )
         finally:

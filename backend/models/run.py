@@ -19,7 +19,8 @@ class TaskType(str, enum.Enum):
 
     train = "train"
     train_evaluation = "evaluation"
-    
+
+
 class TrainingStatus(str, enum.Enum):
     """Represents the lifecycle state of a training run.
 
@@ -30,10 +31,11 @@ class TrainingStatus(str, enum.Enum):
         success: Training completed successfully.
     """
 
-    pending = 'Pending'
-    progress = 'In Progress'
-    failure = 'Failed'
-    success = 'Successful'
+    pending = "Pending"
+    progress = "In Progress"
+    failure = "Failed"
+    success = "Successful"
+
 
 class EvaluationStatus(str, enum.Enum):
     """Represents the lifecycle state of an evaluation run.
@@ -45,10 +47,10 @@ class EvaluationStatus(str, enum.Enum):
         success: Evaluation completed successfully.
     """
 
-    pending = 'Pending'
-    progress = 'In Progress'
-    failure = 'Failed'
-    success = 'Successful'
+    pending = "Pending"
+    progress = "In Progress"
+    failure = "Failed"
+    success = "Successful"
 
 
 class Run(Base):
@@ -85,15 +87,12 @@ class Run(Base):
     has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     training_status: Mapped[TrainingStatus] = mapped_column(
-        Enum(TrainingStatus, native_enum=False), 
-        nullable=False, 
-        default=TrainingStatus.pending
+        Enum(TrainingStatus, native_enum=False), nullable=False, default=TrainingStatus.pending
     )
     evaluation_status: Mapped[EvaluationStatus] = mapped_column(
-        Enum(EvaluationStatus, native_enum=False), 
-        nullable=True
+        Enum(EvaluationStatus, native_enum=False), nullable=True
     )
-    
+
     # Define relationships
     experiment_params = relationship(
         "ExperimentParams", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True

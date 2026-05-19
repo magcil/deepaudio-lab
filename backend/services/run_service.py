@@ -41,6 +41,7 @@ def get(db: Session, **filters) -> list[dict]:
     runs = run_repository.get_query(db, **filters)
     return [_serialize_run(run) for run in runs]
 
+
 def get_by_id(db: Session, run_id: int) -> dict | None:
     """Retrieve a single run with full details.
 
@@ -87,11 +88,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
     except json.JSONDecodeError as e:
         raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
 
-    run = Run(
-        name=params.experiment_name,
-        description=params.description,
-        task_type=TaskType.train
-    )
+    run = Run(name=params.experiment_name, description=params.description, task_type=TaskType.train)
     exp_params = ExperimentParams(
         run=run,
         class_mapping=class_mapping,
@@ -149,7 +146,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
 
     if train_exp.has_evaluation:
         raise InvalidStateError("Experiment already evaluated")
-    
+
     # Update run fields
     train_exp.task_type = TaskType.train_evaluation
     train_exp.evaluation_status = EvaluationStatus.pending

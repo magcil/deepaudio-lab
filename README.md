@@ -37,7 +37,7 @@ DATABASE_URL=postgresql://deepaudio:deepaudio@localhost:5432/deepaudio
 
 Start all services in the following order.
 
-### 1. PostgreSQL
+### 1. PostgreSQL + SeaweedFS for raw dataset storage
 
 ```bash
 cd database
@@ -50,7 +50,18 @@ To stop:
 docker compose down
 ```
 
-The database tables are created automatically on first startup.
+The database tables are created automatically on first startup. Seaweedfs runs seaweedfs-mini to spin up four containers managing the microservices for:
+
+1. Master UI: http://localhost:9333
+2. Volume Server: http://localhost:9340
+3. Filer UI: http://localhost:8888
+4. WebDAV: http://localhost:7333
+5. Admin UI: http://localhost:23646 
+
+Upon start-up the seaweedfs will create two buckets:
+
+1. `raw-audios`: This bucket contains the raw audio wav files uploaded by the Users
+2. `checkpoints`: This bucket will be used to store the checkpoints.
 
 ### 2. Redis
 

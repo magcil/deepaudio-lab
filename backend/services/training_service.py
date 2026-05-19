@@ -73,7 +73,7 @@ class TrainingService:
         trainer = None
         try:
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
-            
+
             device = get_device(
                 device=params.device,
                 device_index=params.gpu_index if params.device == "cuda" else None,
@@ -135,7 +135,6 @@ class TrainingService:
             for cb in trainer.callbacks:
                 cb.on_train_start(trainer)
 
-        
             start_time = time.monotonic()
             prev_elapsed = 0.0
             for epoch in range(1, trainer.epochs + 1):
@@ -179,13 +178,13 @@ class TrainingService:
                 update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
             except Exception:
                 self.logger.exception("Also failed to mark run_id=%s as failure", run_id)
-            raise                                          # don't swallow                                    # don't swallow
+            raise  # don't swallow                                    # don't swallow
         else:
             # Update training status to success
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
             self.logger.info("Training process complete.")
         finally:
-            if trainer is not None:                        # on_train_end always fires
+            if trainer is not None:  # on_train_end always fires
                 for cb in trainer.callbacks:
                     cb.on_train_end(trainer)
             db.close()

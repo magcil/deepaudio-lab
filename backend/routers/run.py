@@ -41,11 +41,10 @@ def get_train_runs(db: Session = Depends(get_db)):
         db,
         task_type="train",
         training_status=TrainingStatus.success,
-        evaluation_status=[None, EvaluationStatus.failure]
+        evaluation_status=[None, EvaluationStatus.failure],
     )
 
     return train_runs
-
 
 
 @router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
