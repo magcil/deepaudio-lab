@@ -6,8 +6,9 @@ import Training from './pages/Training'
 import Evaluation from './pages/Evaluation'
 import ExperimentDetail from './pages/ExperimentDetail'
 import ActivityMonitor from './pages/ActivityMonitor'
+import Datasets from './pages/Datasets'
 
-type Page = 'homepage' | 'training' | 'evaluation' | 'experiment' | 'activity-monitor'
+type Page = 'homepage' | 'training' | 'evaluation' | 'experiment' | 'activity-monitor' | 'datasets'
 
 function App() {
   const [activePage, setActivePage] = useState<Page>('homepage')
@@ -26,6 +27,7 @@ function App() {
       {activePage === 'evaluation' && <Evaluation />}
       {activePage === 'experiment' && <ExperimentDetail id={selectedExperimentId!} onBack={() => setActivePage('homepage')} />}
       {activePage === 'activity-monitor' && <ActivityMonitor />}
+      {activePage === 'datasets' && <Datasets />}
     </div>
   )
 }

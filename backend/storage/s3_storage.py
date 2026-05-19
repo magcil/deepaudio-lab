@@ -31,7 +31,7 @@ def put_presigned_url(bucket: str, key: str, expires_in: int = 3600) -> str:
     """
     return s3.generate_presigned_url(
         ClientMethod="put_object",
-        Params={"Bucket": bucket, "Key": key},
+        Params={"Bucket": bucket, "Key": key, "ContentType": "audio/wav"},
         ExpiresIn=expires_in,
     )
 
