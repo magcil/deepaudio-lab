@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 import os
 
@@ -17,11 +16,10 @@ from deepaudiox.schemas.items import AudioClassificationItem
 
 class S3AudioClassificationDataset(Dataset):
     """
-    PyTorch Dataset for audio classification tasks using SeaweedFS/S3 storage.
+    PyTorch Dataset for audio classification tasks using SeaweedFS Filer storage.
 
     This dataset mirrors the behavior and interface of DeepAudioX's
-    AudioClassificationDataset, but reads WAV files directly from S3-compatible
-    storage on-the-fly.
+    AudioClassificationDataset, but reads WAV files directly from SeaweedFS on-the-fly.
 
     The ``file_to_class_mapping`` argument must be a dictionary of the form::
 
@@ -32,7 +30,7 @@ class S3AudioClassificationDataset(Dataset):
     individual dataset sample.
 
     Attributes:
-        file_to_class_mapping (dict): Mapping from S3 object keys to class names.
+        file_to_class_mapping (dict): Mapping from SeaweedFS object paths to class names.
         sample_rate (int): Target sampling rate for audio loading.
         class_mapping (dict): Mapping from string class labels to integer IDs.
     """
@@ -49,7 +47,7 @@ class S3AudioClassificationDataset(Dataset):
 
         Args:
             file_to_class_mapping (dict):
-                Mapping from S3 object keys to class names.
+                Mapping from SeaweedFS object paths to class names.
             sample_rate (int):
                 Target sampling rate for audio loading.
             class_mapping (dict):
@@ -148,3 +146,4 @@ class S3AudioClassificationDataset(Dataset):
                 )
 
         self.items = valid_items
+
