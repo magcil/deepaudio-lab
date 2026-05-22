@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
-from routers import evaluation, run, tasks, training, storage
+from routers import evaluation, run, storage, tasks, training
 
 # Instantiate api
 app = FastAPI()

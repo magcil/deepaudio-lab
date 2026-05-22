@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
 import os
-
-from torch.utils.data import Dataset
-
-from ..storage.client import DATA_BUCKET
-from adapters.utils import (
-    load_audio_from_s3,
-    get_audio_duration_from_s3,
-)
+from pathlib import Path
 
 from deepaudiox.schemas.items import AudioClassificationItem
+from torch.utils.data import Dataset
+
+from .utils import (
+    get_audio_duration_from_s3,
+    load_audio_from_s3,
+)
+
+from ..storage.client import DATA_BUCKET
 
 
 class S3AudioClassificationDataset(Dataset):
@@ -37,7 +37,7 @@ class S3AudioClassificationDataset(Dataset):
 
     def __init__(
         self,
-        file_to_class_mapping: dict[str | os.PathLike, str],
+        file_to_class_mapping: dict[str, str],
         sample_rate: int,
         class_mapping: dict[str, int],
         segment_duration: float | None = None,
@@ -73,8 +73,8 @@ class S3AudioClassificationDataset(Dataset):
 
         self.segment_duration = segment_duration
 
-        if self.segment_duration:
-            self._apply_segmentation(segment_duration)
+        if self.segment_duration is not None:
+            self._apply_segmentation(self.segment_duration)
 
     def __len__(self) -> int:
         """
@@ -98,11 +98,7 @@ class S3AudioClassificationDataset(Dataset):
 
         item = self.items[idx]
 
-        offset = (
-            item.segment_idx * self.segment_duration
-            if self.segment_duration
-            else 0.0
-        )
+        offset = item.segment_idx * self.segment_duration if self.segment_duration else 0.0
 
         item.feature = load_audio_from_s3(
             bucket=DATA_BUCKET,
@@ -114,7 +110,7 @@ class S3AudioClassificationDataset(Dataset):
 
         return item.to_dict()
 
-    def _apply_segmentation(self, segment_duration: float | None):
+    def _apply_segmentation(self, segment_duration: float):
         """
         Segmentize all audio files into fixed-duration segments.
 
@@ -146,4 +142,3 @@ class S3AudioClassificationDataset(Dataset):
                 )
 
         self.items = valid_items
-

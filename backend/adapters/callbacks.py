@@ -74,8 +74,6 @@ class S3Checkpointer(BaseCallback):
             s3_client.put_object(Bucket=self.bucket, Key=self.key, Body=buffer.getvalue())
 
             if trainer.verbose:
-                self.logger.info(
-                    f"[S3 CHECKPOINTER] Checkpoint saved to s3://{self.bucket}/{self.key}"
-                )
+                self.logger.info(f"[S3 CHECKPOINTER] Checkpoint saved to s3://{self.bucket}/{self.key}")
         except Exception as e:
             self.logger.error(f"[S3 CHECKPOINTER] Failed to upload checkpoint: {e}")
