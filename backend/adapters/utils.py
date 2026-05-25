@@ -51,9 +51,8 @@ def get_class_mapping_from_s3_dataset(user_id: str, dataset_name: str, split: st
 
     return {name: idx for idx, name in enumerate(sorted(class_names))}
 
-def create_file_to_class_mapping_from_s3(
-    user_id: str, dataset_name: str, split: str, bucket: str
-) -> dict[str, str]:
+
+def create_file_to_class_mapping_from_s3(user_id: str, dataset_name: str, split: str, bucket: str) -> dict[str, str]:
     """Build the file-to-class mapping required by DeepAudioX's AudioClassificationDataset.
 
     Lists all ``.wav`` objects under ``{user_id}/{dataset_name}/{split}/`` and
@@ -94,7 +93,7 @@ def create_file_to_class_mapping_from_s3(
             if not key.lower().endswith(".wav"):
                 continue
             # Strip the prefix to get "class_name/filename.wav"
-            relative = key[len(prefix):]
+            relative = key[len(prefix) :]
             class_name = relative.split("/")[0]
             file_to_class[key] = class_name
 
@@ -102,6 +101,7 @@ def create_file_to_class_mapping_from_s3(
         raise ValueError(f"No .wav files found in s3://{bucket}/{prefix}")
 
     return file_to_class
+
 
 def get_audio_duration_from_s3(bucket: str, key: str) -> float:
     """Get the duration of a WAV file stored in S3 by reading only its 44-byte header.
