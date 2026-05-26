@@ -1,0 +1,37 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: deepaudio-keycloak
+    restart: unless-stopped
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  keycloak-init:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: deepaudio-keycloak-init
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    volumes:
+      - ./init.sh:/opt/init.sh:ro
+    entrypoint: ["/bin/bash", "/opt/init.sh"]
+    environment:
+      KEYCLOAK_REALM: deepaudiolab
+      DEFAULT_ADMIN_USERNAME: admin
+      DEFAULT_ADMIN_PASSWORD: admin
+    restart: "no"
+
+volumes:
+  keycloak_data:

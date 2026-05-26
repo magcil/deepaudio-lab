@@ -9,6 +9,7 @@ from exceptions.exceptions import (
     InvalidStateError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
+    UnauthorizedError,
 )
 from models.experiment_params import ExperimentParams
 from models.run import EvaluationStatus, Run, TaskType
@@ -17,18 +18,12 @@ from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
 
 
-def get_all(db: Session) -> list[dict]:
-    """Retrieve all runs
-    Args:
-        db (Session): SQLAlchemy database session.
-    Returns:
-        list[dict]: Serialized list of runs.
-    """
-    runs = run_repository.get_all(db)
+def get_all(db: Session, owner_id: str | None = None) -> list[dict]:
+    runs = run_repository.get_all(db, owner_id=owner_id)
     return [_serialize_run(run) for run in runs]
 
 
-def get(db: Session, **filters) -> list[dict]:
+def get(db: Session, owner_id: str | None = None, **filters) -> list[dict]:
     """Retrieve runs filtered by dynamic Run fields.
 
     Args:
@@ -38,10 +33,10 @@ def get(db: Session, **filters) -> list[dict]:
     Returns:
         list[dict]: Serialized list of matching runs.
     """
-    runs = run_repository.get_query(db, **filters)
+    runs = run_repository.get_query(db, created_by=owner_id, **filters)
     return [_serialize_run(run) for run in runs]
 
-def get_by_id(db: Session, run_id: int) -> dict | None:
+def get_by_id(db: Session, run_id: int, owner_id: str | None = None) -> dict | None:
     """Retrieve a single run with full details.
 
     Args:
@@ -51,13 +46,13 @@ def get_by_id(db: Session, run_id: int) -> dict | None:
     Returns:
         dict | None: Serialized run detail, or None if not found.
     """
-    run = run_repository.get_by_id(db, run_id)
+    run = run_repository.get_by_id(db, run_id, owner_id=owner_id)
     if run is None:
         return None
     return _serialize_run_detail(run)
 
 
-def register_train(db: Session, params: TrainParams) -> dict:
+def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
 
     Loads and parses the class-mapping file, constructs a new ``Run`` and
@@ -88,6 +83,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
         raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
 
     run = Run(
+        created_by=owner_id,
         name=params.experiment_name,
         description=params.description,
         task_type=TaskType.train
@@ -118,7 +114,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
     return _serialize_run_detail(created_run)
 
 
-def register_evaluation(db: Session, evaluation_params: EvaluationParams):
+def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_id: str):
     """Validate and update run and experiment parameters for evaluation.
 
     Retrieves the training run referenced in the evaluation request,
@@ -146,6 +142,9 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     train_exp = run_repository.get_by_name(db, evaluation_params.train_name)
     if train_exp is None:
         raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
+
+    if train_exp.created_by != owner_id:
+        raise UnauthorizedError("You do not own this run")
 
     if train_exp.has_evaluation:
         raise InvalidStateError("Experiment already evaluated")

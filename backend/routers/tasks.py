@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from repositories import run_repository
+from schemas.user_info import UserInfo
+from services.auth_service import get_current_user
 from worker.app import celery_app
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -26,13 +28,9 @@ class ActiveTask(BaseModel):
 
 
 @router.get("/", response_model=list[ActiveTask])
-def get_active_tasks(db: Session = Depends(get_db)):
-    """Return all runs with an associated Celery task that are active or failed.
-
-    Queries runs that have a task_id, checks their current Celery state,
-    and returns those in PENDING, STARTED, PROGRESS, or FAILURE states.
-    """
-    runs = run_repository.get_with_task_ids(db)
+def get_active_tasks(db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    owner_id = None if user.is_admin else user.sub
+    runs = run_repository.get_with_task_ids(db, owner_id=owner_id)
     result = []
     for run in runs:
         ar = AsyncResult(run.task_id, app=celery_app)

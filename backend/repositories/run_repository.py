@@ -48,39 +48,22 @@ def create_run_with_params(db: Session, run: Run, exp_params: ExperimentParams) 
         raise RepositoryError("Failed to create run with params") from e
 
 
-def get_by_id(db: Session, id: int) -> Run | None:
-    """Retrieve a Run by its primary key.
-
-    Args:
-        db (Session): Active SQLAlchemy session.
-        id (int): Primary key of the Run.
-
-    Raises:
-        RepositoryError: If a database query error occurs.
-
-    Returns:
-        Run | None: Matching Run instance or None if not found.
-    """
+def get_by_id(db: Session, id: int, owner_id: str | None = None) -> Run | None:
     try:
-        return db.query(Run).filter(Run.id == id).first()
+        query = db.query(Run).filter(Run.id == id)
+        if owner_id is not None:
+            query = query.filter(Run.created_by == owner_id)
+        return query.first()
     except SQLAlchemyError as e:
         raise RepositoryError(f"Failed to fetch run by ID '{id}'") from e
 
 
-def get_all(db: Session) -> list[Run]:
-    """Retrieve all Run records from the database.
-
-    Args:
-        db (Session): Active SQLAlchemy session.
-
-    Raises:
-        RepositoryError: If a database query error occurs.
-
-    Returns:
-        list[Run]: List of all stored Run instances.
-    """
+def get_all(db: Session, owner_id: str | None = None) -> list[Run]:
     try:
-        return db.query(Run).all()
+        query = db.query(Run)
+        if owner_id is not None:
+            query = query.filter(Run.created_by == owner_id)
+        return query.all()
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to fetch all runs") from e
 
@@ -141,7 +124,7 @@ def get_query(db: Session, **filters) -> list[Run]:
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to fetch runs with dynamic filters") from e
 
-def delete(db: Session, id: int) -> bool:
+def delete(db: Session, id: int, owner_id: str | None = None) -> bool:
     """Delete a run by its primary key.
 
     Args:
@@ -155,7 +138,10 @@ def delete(db: Session, id: int) -> bool:
         bool: ``True`` if a row was deleted, ``False`` if no run matched.
     """
     try:
-        run = db.query(Run).filter(Run.id == id).first()
+        query = db.query(Run).filter(Run.id == id)
+        if owner_id is not None:
+            query = query.filter(Run.created_by == owner_id)
+        run = query.first()
         if run is None:
             return False
         db.delete(run)
@@ -289,7 +275,14 @@ def update_evaluation_status(db: Session, run_id: int, evaluation_status: str) -
         db.rollback()
         raise RepositoryError(f"Failed to update evaluation_status for run '{run_id}'") from e
 
-def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
+def get_by_task_id(db: Session, task_id: str) -> Run | None:
+    try:
+        return db.query(Run).filter(Run.task_id == task_id).first()
+    except SQLAlchemyError as e:
+        raise RepositoryError(f"Failed to fetch run by task_id '{task_id}'") from e
+
+
+def get_with_task_ids(db: Session, within_hours: int = 24, owner_id: str | None = None) -> list[Run]:
     """Retrieve runs that have an associated Celery task, up to a time window.
 
     Args:
@@ -305,12 +298,10 @@ def get_with_task_ids(db: Session, within_hours: int = 24) -> list[Run]:
     """
     try:
         cutoff = datetime.now(UTC) - timedelta(hours=within_hours)
-        return (
-            db.query(Run)
-            .filter(Run.task_id.isnot(None), Run.created_at >= cutoff)
-            .order_by(Run.created_at.desc())
-            .all()
-        )
+        query = db.query(Run).filter(Run.task_id.isnot(None), Run.created_at >= cutoff)
+        if owner_id is not None:
+            query = query.filter(Run.created_by == owner_id)
+        return query.order_by(Run.created_at.desc()).all()
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to fetch runs with task IDs") from e
 

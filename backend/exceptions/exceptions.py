@@ -113,6 +113,13 @@ class InvalidResourceError(AppError):
         super().__init__(msg)
 
 
+class UnauthorizedError(AppError):
+    """Raised when a user attempts to access a resource they do not own."""
+
+    def __init__(self, message: str = "Access denied"):
+        super().__init__(message)
+
+
 class InvalidStateError(AppError):
     """Raised when an operation violates domain state constraints.
 

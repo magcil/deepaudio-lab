@@ -11,6 +11,7 @@ from exceptions.exceptions import (
     InvalidStateError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
+    UnauthorizedError,
 )
 
 
@@ -104,6 +105,10 @@ def register_exception_handlers(app: FastAPI) -> None:
             JSONResponse: A 422 response carrying the exception message.
         """
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(UnauthorizedError)
+    async def unauthorized(request: Request, exc: UnauthorizedError):
+        return JSONResponse(status_code=403, content={"detail": str(exc)})
 
     @app.exception_handler(InvalidStateError)
     async def invalid_state(request: Request, exc: InvalidStateError):

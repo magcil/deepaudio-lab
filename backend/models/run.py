@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -78,6 +78,7 @@ class Run(Base):
 
     __tablename__ = "run"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    created_by = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String)
     task_type: Mapped[TaskType] = mapped_column(Enum(TaskType, native_enum=False), nullable=False)
@@ -95,6 +96,8 @@ class Run(Base):
     )
     
     # Define relationships
+    creator = relationship("User", back_populates="runs", foreign_keys=[created_by])
+
     experiment_params = relationship(
         "ExperimentParams", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True
     )
