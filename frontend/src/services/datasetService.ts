@@ -11,7 +11,7 @@ interface PresignResponse {
 }
 
 export function getPresignedUrls(paths: string[], user: string): Promise<PresignResponse> {
-  return client.post<PresignResponse>('/storage/upload/dataset/presigned', { paths, user })
+  return client.post<PresignResponse>('/datasets/presigned', { paths, user })
 }
 
 export async function uploadFileToPresignedUrl(url: string, file: File): Promise<void> {

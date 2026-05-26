@@ -4,7 +4,7 @@ import struct
 import librosa
 import numpy as np
 
-from ..storage.client import s3_client
+from storage.client import s3_client
 
 
 def get_class_mapping_from_s3_dataset(user_id: str, dataset_name: str, split: str, bucket: str) -> dict[str, int]:
