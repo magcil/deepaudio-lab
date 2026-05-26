@@ -15,6 +15,7 @@ from models.run import EvaluationStatus, Run, TaskType
 from repositories import experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
+from adapters.utils import get_class_mapping_from_s3_dataset
 
 
 def get_all(db: Session) -> list[dict]:
@@ -80,13 +81,14 @@ def register_train(db: Session, params: TrainParams) -> dict:
         dict: Serialized run detail including the new run's metadata and
             its persisted experiment parameters.
     """
-    try:
-        with open(params.class_mapping) as f:
-            class_mapping = json.load(f)
-    except FileNotFoundError as e:
-        raise ResourceNotFoundError("ClassMapping", params.class_mapping) from e
-    except json.JSONDecodeError as e:
-        raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
+    #TODO: ADD TRY EXCEPT?
+    class_mapping = get_class_mapping_from_s3_dataset(
+                                                        user_id='default', 
+                                                        dataset_name=params.dataset,
+                                                        split=params.training_set,
+                                                        bucket='raw-audios'
+                                                        )
+    
 
     run = Run(name=params.experiment_name, description=params.description, task_type=TaskType.train)
     exp_params = ExperimentParams(
@@ -104,9 +106,11 @@ def register_train(db: Session, params: TrainParams) -> dict:
         pretrained_backbone=params.pretrained,
         pooling=params.pooling,
         freeze_backbone=params.freeze_backbone,
+        #TODO: CHANGE paths?
         path_to_checkpoint=params.checkpoint,
-        path_to_train=params.training_data,
-        path_to_validation=params.validation_data,
+        dataset_name=params.dataset,
+        path_to_train=params.training_set,
+        path_to_validation=params.validation_set,
         device=params.device,
         gpu_index=params.gpu_index,
     )
@@ -158,7 +162,9 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     exp_params.path_to_test = evaluation_params.evaluation_data
     experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
 
+    #TODO: RENAME PATH VARIABLES?
     exp_params_dict = {
+        "dataset_name": exp_params.dataset_name,
         "path_to_checkpoint": exp_params.path_to_checkpoint,
         "path_to_test": exp_params.path_to_test,
         "sample_rate": exp_params.sample_rate,

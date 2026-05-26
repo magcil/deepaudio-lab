@@ -59,8 +59,9 @@ class TrainParams(BaseModel):
         alias_generator=to_camel,
     )
 
-    training_data: str
-    validation_data: str | None = Field(default=None)
+    dataset: str
+    training_set: str
+    validation_set: str | None = Field(default=None)
     sampling_rate: int = Field(default=16_000, gt=0)
     segment_duration: float | None = Field(default=None, gt=0)
     backbone: str
@@ -76,7 +77,6 @@ class TrainParams(BaseModel):
     batch_size: int = Field(default=8, gt=0)
     gpu_index: int | None = Field(default=None, ge=0)
     device: str = Field(default="cpu")
-    class_mapping: str
     experiment_name: str = Field(min_length=1)
     description: str | None = Field(default=None)
 

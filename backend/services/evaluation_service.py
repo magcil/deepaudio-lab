@@ -16,6 +16,9 @@ from exceptions.exceptions import ReferencedEntityNotFoundError
 from models.run import EvaluationStatus, TaskType
 from repositories import run_repository
 from repositories.run_repository import update_evaluation_status
+from adapters.dataset import S3AudioClassificationDataset
+from adapters.classifiers import S3AudioClassifier
+from adapters.utils import create_file_to_class_mapping_from_s3
 
 
 @dataclass
@@ -73,17 +76,25 @@ class EvaluationService:
 
             update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
 
-            model = AudioClassifier.from_checkpoint(f"{exp_params['path_to_checkpoint']}.pt")
+            #TODO: REMOVE HARDCODED USERID
+            user_id = 'default'
+            model = S3AudioClassifier.from_checkpoint(path=f"run_{run_id}/{user_id}/{exp_params.get('path_to_checkpoint')}")
             model.to(device)
             model.eval()
 
-            dataset = audio_classification_dataset_from_dir(
-                root_dir=exp_params["path_to_test"],
-                sample_rate=exp_params["sample_rate"],
-                segment_duration=exp_params["segment_duration"],
-                class_mapping=exp_params["class_mapping"],
-            )
-
+            test_file_to_class_mapping = create_file_to_class_mapping_from_s3(
+                                                                        user_id='default',
+                                                                        dataset_name=exp_params.get('dataset_name'), 
+                                                                        split=exp_params.get('path_to_test'), 
+                                                                        bucket='raw-audios'
+                                                                        )
+            dataset = S3AudioClassificationDataset(
+                                file_to_class_mapping=test_file_to_class_mapping,
+                                sample_rate=exp_params.get('sample_rate'),
+                                class_mapping=class_mapping,
+                                segment_duration=exp_params.get('segment_duration')
+                                )
+            
             dataloader = DataLoader(
                 dataset,
                 batch_size=exp_params["batch_size"],

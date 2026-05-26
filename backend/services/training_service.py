@@ -15,6 +15,10 @@ from models.run import TrainingStatus
 from repositories import loss_repository
 from repositories.run_repository import update_training_status
 from schemas.train_params import TrainParams
+from adapters.utils import create_file_to_class_mapping_from_s3
+from adapters.dataset import S3AudioClassificationDataset
+from adapters.callbacks import S3Checkpointer
+from adapters.classifiers import S3AudioClassifier
 
 
 class TrainingService:
@@ -80,7 +84,7 @@ class TrainingService:
             )
 
             # Load model
-            model = AudioClassifier(
+            model = S3AudioClassifier(
                 num_classes=len(class_mapping),
                 backbone=params.backbone,
                 sample_rate=params.sampling_rate,
@@ -101,15 +105,34 @@ class TrainingService:
                 segment_duration=params.segment_duration,
                 class_mapping=class_mapping,
             )
+            train_file_to_class_mapping = create_file_to_class_mapping_from_s3(
+                                                                        user_id='default',
+                                                                        dataset_name=params.dataset, 
+                                                                        split=params.training_set, 
+                                                                        bucket='raw-audios'
+                                                                        )
+            train_dataset = S3AudioClassificationDataset(
+                                file_to_class_mapping=train_file_to_class_mapping,
+                                sample_rate=params.sampling_rate,
+                                class_mapping=class_mapping,
+                                segment_duration=params.segment_duration
+                                )
 
             validation_dataset = None
-            if params.validation_data:
-                validation_dataset = audio_classification_dataset_from_dir(
-                    root_dir=params.validation_data,
-                    sample_rate=params.sampling_rate,
-                    segment_duration=params.segment_duration,
-                    class_mapping=class_mapping,
-                )
+            if params.validation_set:
+                validation_file_to_class_mapping = create_file_to_class_mapping_from_s3(
+                                                                        user_id='default',
+                                                                        dataset_name=params.dataset, 
+                                                                        split=params.validation_set, 
+                                                                        bucket='raw-audios'
+                                                                        )
+                #TODO: CHECK if no validationSet is given then the random_split_audio_dataset works as expected with no conflicts for the S3AudioClassificationDataset
+                validation_dataset = S3AudioClassificationDataset(
+                                file_to_class_mapping=validation_file_to_class_mapping,
+                                sample_rate=params.sampling_rate,
+                                class_mapping=class_mapping,
+                                segment_duration=params.segment_duration
+                                )
 
             # Initialize trainer
             trainer = Trainer(
@@ -124,11 +147,20 @@ class TrainingService:
                 patience=params.patience,
                 num_workers=params.workers,
                 batch_size=params.batch_size,
+                #TODO: REMOVE CHECKPOINT PATH?
                 path_to_checkpoint=f"{params.checkpoint}.pt",
                 device=params.device,
                 device_index=params.gpu_index,
             )
+            
+            checkpointer = S3Checkpointer(
+                                        run_id=run_id,
+                                        checkpoint_name=params.checkpoint,
+                                        logger=self.logger
+                                        )
 
+            trainer.callbacks[0] = checkpointer
+            
             self.logger.info("Starting manual training loop...")
 
             # Fire the "on_train_start" lifecycle hook

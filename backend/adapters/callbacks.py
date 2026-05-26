@@ -27,15 +27,17 @@ class S3Checkpointer(BaseCallback):
         logger: Logger instance.
     """
 
-    def __init__(self, run_id: int, logger: logging.Logger | None = None):
+    def __init__(self, run_id: int, checkpoint_name: str, logger: logging.Logger | None = None):
         """Initialize the S3Checkpointer.
 
         Args:
             run_id: Training run ID, used to scope the checkpoint key.
             logger: Optional logger. Defaults to the DeepAudioX logger.
         """
+        #TODO: REMOVE HARDCODED USER
+        user_id = 'default'
         self.bucket = CHECKPOINTS_BUCKET
-        self.key = f"run_{run_id}/best.pt"
+        self.key = f"run_{run_id}/{user_id}/{checkpoint_name}"
         self.logger = logger or get_logger()
 
     def on_epoch_end(self, trainer) -> None:
