@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from db.session import get_db
 from exceptions.exceptions import EntityNotFoundError
 from models.run import EvaluationStatus, TrainingStatus
-from repositories import run_repository
 from services import run_service
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
