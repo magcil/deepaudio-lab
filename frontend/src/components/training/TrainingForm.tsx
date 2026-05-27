@@ -3,6 +3,7 @@ import DataConfigSection from './DataConfigSection'
 import ModelSettingsSection from './ModelSettingsSection'
 import HyperparametersSection from './HyperparametersSection'
 import { startTraining, getTrainingOptions, type TrainingOptions } from '../../services/trainingService'
+import { getDatasets, type Dataset } from '../../services/datasetService'
 import './TrainingForm.css'
 
 export interface TrainingFormData {
@@ -54,8 +55,10 @@ const INITIAL_FORM: TrainingFormData = {
   gpuIndex: '',
 }
 
+
 export default function TrainingForm() {
   const [options, setOptions] = useState<TrainingOptions>({ backbones: [], poolingMethods: [], gpuIndexes: [], cudaAvailable: false, mpsAvailable: false })
+  const [datasets, setDatasets] = useState<Dataset[]>([])
   const [started, setStarted] = useState(false)
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function TrainingForm() {
         setOptions(data)
       })
       .catch(console.error)
+    getDatasets().then(setDatasets).catch(console.error)
   }, [])
 
   const [form, setForm] = useState<TrainingFormData>(INITIAL_FORM)
@@ -114,7 +118,7 @@ export default function TrainingForm() {
 
   return (
     <form className="training-form" onSubmit={handleSubmit}>
-      <DataConfigSection values={form} onChange={handleChange} />
+      <DataConfigSection values={form} onChange={handleChange} datasets={datasets} />
       <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} />
       <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} />
 

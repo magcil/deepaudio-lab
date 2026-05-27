@@ -15,6 +15,7 @@ export interface Dataset {
   id: number
   name: string
   description: string
+  s3_prefix: string
   status: string
   size_bytes: number | null
   num_files: number | null

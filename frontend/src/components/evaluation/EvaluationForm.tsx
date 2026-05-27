@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import EvalDataConfigSection from './EvalDataConfigSection'
 import EvalHyperparametersSection from './EvalHyperparametersSection'
 import { startEvaluation, getEvaluationOptions, getTrainRuns, type TrainRun } from '../../services/evaluationService'
+import { getDatasets, type Dataset } from '../../services/datasetService'
 import '../training/TrainingForm.css'
 import './EvaluationForm.css'
 
@@ -25,6 +26,7 @@ export default function EvaluationForm() {
   const [gpuIndexes, setGpuIndexes] = useState<number[]>([])
   const [cudaAvailable, setCudaAvailable] = useState(false)
   const [mpsAvailable, setMpsAvailable] = useState(false)
+  const [datasets, setDatasets] = useState<Dataset[]>([])
   const [trainRuns, setTrainRuns] = useState<TrainRun[]>([])
   const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null)
   const [experimentError, setExperimentError] = useState(false)
@@ -47,6 +49,8 @@ export default function EvaluationForm() {
         setTrainRuns(runs)
       })
       .catch(console.error)
+
+    getDatasets().then(setDatasets).catch(console.error)
   }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
@@ -120,7 +124,7 @@ export default function EvaluationForm() {
         )}
       </div>
 
-      <EvalDataConfigSection values={form} onChange={handleChange} />
+      <EvalDataConfigSection values={form} onChange={handleChange} datasets={datasets} />
       <EvalHyperparametersSection
         values={form}
         onChange={handleChange}
