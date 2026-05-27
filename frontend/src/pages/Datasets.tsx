@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import DatasetUpload, { type FileEntry } from '../components/dataset/DatasetUpload'
 import UploadProgress from '../components/dataset/UploadProgress'
-import { getPresignedUrls, uploadFileToPresignedUrl, confirmDataset, markDatasetError, getDatasets, type Dataset } from '../services/datasetService'
+import { getPresignedUrls, uploadFileToPresignedUrl, confirmDataset, markDatasetError, getDatasets, deleteDataset, type Dataset } from '../services/datasetService'
 import { ApiError } from '../api/client'
 import './Datasets.css'
 import '../pages/Homepage.css'
@@ -17,12 +17,30 @@ export default function Datasets() {
   const [progress, setProgress] = useState<{ uploaded: number; total: number } | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
 
   function fetchDatasets() {
     getDatasets().then(data => { console.log('datasets:', data); setDatasets(data) }).catch(() => {})
   }
 
   useEffect(() => { fetchDatasets() }, [])
+
+  async function handleDelete(e: React.MouseEvent, id: number) {
+    e.stopPropagation()
+    await deleteDataset(id)
+    setConfirmingId(null)
+    setDatasets(prev => prev.filter(ds => ds.id !== id))
+  }
+
+  function handleConfirmClick(e: React.MouseEvent, id: number) {
+    e.stopPropagation()
+    setConfirmingId(id)
+  }
+
+  function handleCancel(e: React.MouseEvent) {
+    e.stopPropagation()
+    setConfirmingId(null)
+  }
 
   async function handleFilesSelected(entries: FileEntry[], meta: DatasetMeta) {
     setUploadError(null)
@@ -100,6 +118,22 @@ export default function Datasets() {
               <div key={ds.id} className="experiment-card">
                 <div className="experiment-card__header">
                   <p className="experiment-card__name">{ds.name}</p>
+                  {confirmingId === ds.id ? (
+                    <div className="experiment-card__confirm" onClick={e => e.stopPropagation()}>
+                      <span className="experiment-card__confirm-label">Delete?</span>
+                      <button className="experiment-card__confirm-yes" onClick={e => handleDelete(e, ds.id)}>Yes</button>
+                      <button className="experiment-card__confirm-cancel" onClick={handleCancel}>Cancel</button>
+                    </div>
+                  ) : (
+                    <button className="experiment-card__delete" title="Delete dataset" onClick={e => handleConfirmClick(e, ds.id)}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 <p className="experiment-card__description">{ds.description || '—'}</p>
                 <div className="experiment-card__pills" style={{ marginTop: 14 }}>

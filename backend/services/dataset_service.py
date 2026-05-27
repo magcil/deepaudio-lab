@@ -3,9 +3,10 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
-from exceptions.exceptions import QuotaExceededError
+from exceptions.exceptions import EntityNotFoundError, QuotaExceededError
 from models.dataset import Dataset, DatasetStatus
 from repositories import dataset_repository
+from services import storage_service
 from services.storage_service import put_user_presigned_url
 from storage.client import DATA_BUCKET
 
@@ -56,15 +57,17 @@ def request_upload(
         user_id=user_id,
         name=dataset_name,
         description=description,
-        s3_prefix=f"{user_id}/{dataset_name}/",
+        s3_prefix="",
         size_bytes=0,
         num_files=len(paths),
     )
     created = dataset_repository.create(db, dataset)
+    folder_name = paths[0].split("/")[0]
+    created = dataset_repository.set_s3_prefix(db, created, f"{user_id}/{created.id}/{folder_name}/")
 
     urls = []
     for path in paths:
-        key, url = put_user_presigned_url(user=user_id, bucket=DATA_BUCKET, suffix_file_path=path)
+        key, url = put_user_presigned_url(user=user_id, bucket=DATA_BUCKET, suffix_file_path=f"{created.id}/{path}")
         urls.append({"path": path, "key": key, "url": url})
 
     return {"dataset_id": created.id, "urls": urls}
@@ -109,6 +112,26 @@ def report_error(db: Session, dataset_id: int) -> dict:
     """
     dataset = dataset_repository.update_status(db, dataset_id, DatasetStatus.error)
     return _serialize(dataset)
+
+
+def delete(db: Session, dataset_id: int) -> None:
+    """Delete a dataset and all its files from storage.
+
+    Storage is cleared before the DB row is removed so that a storage
+    failure leaves the record intact and the dataset remains trackable.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        dataset_id (int): Primary key of the Dataset to delete.
+
+    Raises:
+        EntityNotFoundError: If no dataset with the given ID exists.
+    """
+    dataset = dataset_repository.get_by_id(db, dataset_id)
+    if dataset is None:
+        raise EntityNotFoundError("Dataset", dataset_id)
+    storage_service.delete_dataset_files(str(dataset.s3_prefix))
+    dataset_repository.delete(db, dataset_id)
 
 
 def get_all_for_user(db: Session, user_id: str) -> list[dict]:

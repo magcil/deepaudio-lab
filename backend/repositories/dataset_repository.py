@@ -33,6 +33,33 @@ def create(db: Session, dataset: Dataset) -> Dataset:
         raise RepositoryError("Failed to create dataset") from e
 
 
+def set_s3_prefix(db: Session, dataset: Dataset, s3_prefix: str) -> Dataset:
+    """Set the s3_prefix on an already-persisted Dataset.
+
+    Called immediately after create() once the auto-generated ID is known,
+    so the prefix can be namespaced by that ID.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        dataset (Dataset): The persisted Dataset instance to update.
+        s3_prefix (str): Storage prefix to assign (e.g. ``"default/1/"``).
+
+    Raises:
+        RepositoryError: If a database error occurs.
+
+    Returns:
+        Dataset: The updated and refreshed Dataset instance.
+    """
+    try:
+        dataset.s3_prefix = s3_prefix
+        db.commit()
+        db.refresh(dataset)
+        return dataset
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to set s3_prefix for dataset '{dataset.id}'") from e
+
+
 def get_by_id(db: Session, dataset_id: int) -> Dataset | None:
     """Retrieve a Dataset by its primary key.
 
@@ -125,6 +152,31 @@ def confirm(db: Session, dataset_id: int, size_bytes: int, num_files: int) -> Da
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError(f"Failed to confirm dataset '{dataset_id}'") from e
+
+
+def delete(db: Session, dataset_id: int) -> bool:
+    """Delete a Dataset record by its primary key.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        dataset_id (int): Primary key of the Dataset to delete.
+
+    Raises:
+        RepositoryError: If a database error occurs during deletion.
+
+    Returns:
+        bool: ``True`` if a row was deleted, ``False`` if no dataset matched.
+    """
+    try:
+        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+        if dataset is None:
+            return False
+        db.delete(dataset)
+        db.commit()
+        return True
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to delete dataset '{dataset_id}'") from e
 
 
 def update_status(db: Session, dataset_id: int, status: DatasetStatus) -> Dataset:

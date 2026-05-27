@@ -1,6 +1,8 @@
 import enum
+from datetime import datetime
 
-from sqlalchemy import BigInteger, Column, DateTime, Enum, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, Enum, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from db.session import Base
@@ -50,18 +52,18 @@ class Dataset(Base):
 
     __tablename__ = "dataset"
 
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(String, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    s3_prefix = Column(String, nullable=False)
-    size_bytes = Column(BigInteger, nullable=False, default=0)
-    num_files = Column(Integer, nullable=False, default=0)
-    status = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    s3_prefix: Mapped[str] = mapped_column(String, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    num_files: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[DatasetStatus] = mapped_column(
         Enum(DatasetStatus, native_enum=False),
         nullable=False,
         default=DatasetStatus.uploading,
     )
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_dataset_user_name"),)

@@ -116,3 +116,17 @@ def get_datasets(user_id: str, db: Session = Depends(get_db)):
         list[DatasetResponse]: All dataset records for the given user.
     """
     return dataset_service.get_all_for_user(db=db, user_id=user_id)
+
+
+@router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dataset(dataset_id: int, db: Session = Depends(get_db)):
+    """Delete a dataset and all its files from storage.
+
+    Args:
+        dataset_id (int): ID of the dataset to delete.
+        db (Session): SQLAlchemy session injected by FastAPI.
+
+    Raises:
+        EntityNotFoundError: If no dataset with the given ID exists (→ 404).
+    """
+    dataset_service.delete(db=db, dataset_id=dataset_id)
