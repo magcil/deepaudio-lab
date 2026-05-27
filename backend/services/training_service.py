@@ -3,7 +3,7 @@ import logging
 import time
 
 import torch.nn as nn
-from deepaudiox import Trainer, audio_classification_dataset_from_dir
+from deepaudiox import Trainer
 from deepaudiox.utils.training_utils import get_device
 from sqlalchemy.orm import Session
 from torch.optim import Adam
@@ -16,7 +16,7 @@ from adapters.utils import create_file_to_class_mapping_from_s3
 from db.session import SessionLocal
 from models.loss import Loss
 from models.run import TrainingStatus
-from repositories import loss_repository
+from repositories import dataset_repository, loss_repository
 from repositories.run_repository import update_training_status
 from schemas.train_params import TrainParams
 
@@ -98,15 +98,14 @@ class TrainingService:
             scheduler = ReduceLROnPlateau(optimizer, "min")
             loss_function = nn.CrossEntropyLoss()
 
-            # Load data
-            train_dataset = audio_classification_dataset_from_dir(
-                root_dir=params.training_data,
-                sample_rate=params.sampling_rate,
-                segment_duration=params.segment_duration,
-                class_mapping=class_mapping,
-            )
+            dataset = dataset_repository.get_by_id(db, params.dataset_id)
+            if dataset is None:
+                raise ValueError(f"Dataset {params.dataset_id} not found")
+            s3_prefix = str(dataset.s3_prefix)
+
+            # Create an AudioClassification Dataset reading from S3
             train_file_to_class_mapping = create_file_to_class_mapping_from_s3(
-                user_id="default", dataset_name=params.dataset, split=params.training_set, bucket="raw-audios"
+                s3_prefix=s3_prefix, split=params.training_set, bucket="raw-audios"
             )
             train_dataset = S3AudioClassificationDataset(
                 file_to_class_mapping=train_file_to_class_mapping,
@@ -118,7 +117,7 @@ class TrainingService:
             validation_dataset = None
             if params.validation_set:
                 validation_file_to_class_mapping = create_file_to_class_mapping_from_s3(
-                    user_id="default", dataset_name=params.dataset, split=params.validation_set, bucket="raw-audios"
+                    s3_prefix=s3_prefix, split=params.validation_set, bucket="raw-audios"
                 )
                 # TODO: CHECK if no validationSet is given then the random_split_audio_dataset works as expected with no conflicts for the S3AudioClassificationDataset
                 validation_dataset = S3AudioClassificationDataset(

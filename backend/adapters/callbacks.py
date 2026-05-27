@@ -37,7 +37,7 @@ class S3Checkpointer(BaseCallback):
         # TODO: REMOVE HARDCODED USER
         user_id = "default"
         self.bucket = CHECKPOINTS_BUCKET
-        self.key = f"run_{run_id}/{user_id}/{checkpoint_name}"
+        self.key = f"run_{run_id}/{user_id}/{checkpoint_name}.pt"
         self.logger = logger or get_logger()
 
     def on_epoch_end(self, trainer) -> None:

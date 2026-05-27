@@ -5,12 +5,13 @@ from sqlalchemy.orm import Session
 
 from adapters.utils import get_class_mapping_from_s3_dataset
 from exceptions.exceptions import (
+    EntityNotFoundError,
     InvalidStateError,
     ReferencedEntityNotFoundError,
 )
 from models.experiment_params import ExperimentParams
 from models.run import EvaluationStatus, Run, TaskType
-from repositories import experiment_params_repository, run_repository
+from repositories import dataset_repository, experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
 
@@ -78,9 +79,12 @@ def register_train(db: Session, params: TrainParams) -> dict:
         dict: Serialized run detail including the new run's metadata and
             its persisted experiment parameters.
     """
-    # TODO: ADD TRY EXCEPT?
+    dataset = dataset_repository.get_by_id(db, params.dataset_id)
+    if dataset is None:
+        raise EntityNotFoundError("Dataset", params.dataset_id)
+
     class_mapping = get_class_mapping_from_s3_dataset(
-        user_id="default", dataset_name=params.dataset, split=params.training_set, bucket="raw-audios"
+        s3_prefix=dataset.s3_prefix, split=params.training_set, bucket="raw-audios"
     )
 
     run = Run(name=params.experiment_name, description=params.description, task_type=TaskType.train)
@@ -99,9 +103,8 @@ def register_train(db: Session, params: TrainParams) -> dict:
         pretrained_backbone=params.pretrained,
         pooling=params.pooling,
         freeze_backbone=params.freeze_backbone,
-        # TODO: CHANGE paths?
         path_to_checkpoint=params.checkpoint,
-        dataset_name=params.dataset,
+        dataset_id=params.dataset_id,
         path_to_train=params.training_set,
         path_to_validation=params.validation_set,
         device=params.device,
@@ -157,7 +160,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
 
     # TODO: RENAME PATH VARIABLES?
     exp_params_dict = {
-        "dataset_name": exp_params.dataset_name,
+        "dataset_id": exp_params.dataset_id,
         "path_to_checkpoint": exp_params.path_to_checkpoint,
         "path_to_test": exp_params.path_to_test,
         "sample_rate": exp_params.sample_rate,
@@ -244,6 +247,7 @@ def _serialize_run_detail(run) -> dict:
             "pooling": exp.pooling,
             "freeze_backbone": exp.freeze_backbone,
             "path_to_checkpoint": exp.path_to_checkpoint,
+            "dataset_id": exp.dataset_id,
             "path_to_train": exp.path_to_train,
             "path_to_validation": exp.path_to_validation,
             "path_to_test": exp.path_to_test,

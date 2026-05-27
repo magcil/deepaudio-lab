@@ -59,7 +59,7 @@ class TrainParams(BaseModel):
         alias_generator=to_camel,
     )
 
-    dataset: str
+    dataset_id: int
     training_set: str
     validation_set: str | None = Field(default=None)
     sampling_rate: int = Field(default=16_000, gt=0)

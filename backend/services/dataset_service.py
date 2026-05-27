@@ -62,12 +62,14 @@ def request_upload(
         num_files=len(paths),
     )
     created = dataset_repository.create(db, dataset)
-    folder_name = paths[0].split("/")[0]
-    created = dataset_repository.set_s3_prefix(db, created, f"{user_id}/{created.id}/{folder_name}/")
+    created = dataset_repository.set_s3_prefix(db, created, f"{user_id}/{created.id}/")
 
     urls = []
     for path in paths:
-        key, url = put_user_presigned_url(user=user_id, bucket=DATA_BUCKET, suffix_file_path=f"{created.id}/{path}")
+        path_without_root = "/".join(path.split("/")[1:])
+        key, url = put_user_presigned_url(
+            user=user_id, bucket=DATA_BUCKET, suffix_file_path=f"{created.id}/{path_without_root}"
+        )
         urls.append({"path": path, "key": key, "url": url})
 
     return {"dataset_id": created.id, "urls": urls}
