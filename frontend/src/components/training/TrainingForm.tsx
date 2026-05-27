@@ -10,8 +10,9 @@ export interface TrainingFormData {
   // Data config
   experimentName: string
   description: string
-  trainingData: string
-  validationData: string
+  datasetId: number | null
+  trainingSet: string
+  validationSet: string
   samplingRate: string
   segmentDuration: string
   // Model settings
@@ -20,7 +21,6 @@ export interface TrainingFormData {
   pretrained: boolean
   freezeBackbone: boolean
   modelSamplingRate: string
-  numClasses: string
   checkpoint: string
   // Hyperparameters
   epochs: string
@@ -35,8 +35,9 @@ export interface TrainingFormData {
 const INITIAL_FORM: TrainingFormData = {
   experimentName: '',
   description: '',
-  trainingData: '',
-  validationData: '',
+  datasetId: null,
+  trainingSet: '',
+  validationSet: '',
   samplingRate: '',
   segmentDuration: '',
   backbone: 'beats',
@@ -44,7 +45,6 @@ const INITIAL_FORM: TrainingFormData = {
   pretrained: true,
   freezeBackbone: false,
   modelSamplingRate: '',
-  numClasses: '',
   checkpoint: '',
   epochs: '',
   patience: '',
@@ -85,20 +85,24 @@ export default function TrainingForm() {
     setForm(prev => ({ ...prev, device, gpuIndex: '' }))
   }
 
+  function handleDatasetChange(id: number | null) {
+    setForm(prev => ({ ...prev, datasetId: id, trainingSet: '', validationSet: '' }))
+  }
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const payload = {
       experimentName: form.experimentName,
       description: form.description || null,
-      trainingData: form.trainingData,
-      validationData: form.validationData || null,
+      datasetId: form.datasetId,
+      trainingSet: form.trainingSet,
+      validationSet: form.validationSet || null,
       samplingRate: form.samplingRate ? parseInt(form.samplingRate) : undefined,
       segmentDuration: form.segmentDuration ? parseFloat(form.segmentDuration) : null,
       backbone: form.backbone,
       pooling: form.poolingMethod || null,
       pretrained: form.pretrained,
       freezeBackbone: form.freezeBackbone,
-      numClasses: parseInt(form.numClasses),
       checkpoint: form.checkpoint || null,
       epochs: form.epochs ? parseInt(form.epochs) : undefined,
       patience: form.patience ? parseInt(form.patience) : undefined,
@@ -118,7 +122,7 @@ export default function TrainingForm() {
 
   return (
     <form className="training-form" onSubmit={handleSubmit}>
-      <DataConfigSection values={form} onChange={handleChange} datasets={datasets} />
+      <DataConfigSection values={form} onChange={handleChange} onDatasetChange={handleDatasetChange} datasets={datasets} />
       <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} />
       <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} />
 

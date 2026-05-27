@@ -38,6 +38,10 @@ export function markDatasetError(datasetId: string): Promise<void> {
   return client.patch(`/datasets/${datasetId}/error`)
 }
 
+export function getDatasetSplits(datasetId: number): Promise<string[]> {
+  return client.get<string[]>(`/datasets/${datasetId}/splits`)
+}
+
 export function deleteDataset(datasetId: number): Promise<void> {
   return client.delete(`/datasets/${datasetId}`)
 }

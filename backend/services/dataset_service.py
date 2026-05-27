@@ -8,7 +8,7 @@ from models.dataset import Dataset, DatasetStatus
 from repositories import dataset_repository
 from services import storage_service
 from services.storage_service import put_user_presigned_url
-from storage.client import DATA_BUCKET
+from storage.client import DATA_BUCKET, s3_client
 
 load_dotenv()
 
@@ -134,6 +134,37 @@ def delete(db: Session, dataset_id: int) -> None:
         raise EntityNotFoundError("Dataset", dataset_id)
     storage_service.delete_dataset_files(str(dataset.s3_prefix))
     dataset_repository.delete(db, dataset_id)
+
+
+def get_splits(db: Session, dataset_id: int) -> list[str]:
+    """List the top-level split directories stored under a dataset's S3 prefix.
+
+    Uses the S3 delimiter API to discover virtual subdirectories without
+    downloading any file content (e.g. ``["train", "val"]``).
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        dataset_id (int): Primary key of the Dataset to inspect.
+
+    Raises:
+        EntityNotFoundError: If no dataset with the given ID exists.
+
+    Returns:
+        list[str]: Sorted list of split names found directly under the prefix.
+    """
+    dataset = dataset_repository.get_by_id(db, dataset_id)
+    if dataset is None:
+        raise EntityNotFoundError("Dataset", dataset_id)
+
+    prefix = str(dataset.s3_prefix)
+    paginator = s3_client.get_paginator("list_objects_v2")
+    splits: list[str] = []
+    for page in paginator.paginate(Bucket=DATA_BUCKET, Prefix=prefix, Delimiter="/"):
+        for cp in page.get("CommonPrefixes", []):
+            split = cp["Prefix"].rstrip("/").split("/")[-1]
+            splits.append(split)
+
+    return sorted(splits)
 
 
 def get_all_for_user(db: Session, user_id: str) -> list[dict]:

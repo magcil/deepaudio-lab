@@ -31,7 +31,6 @@ class TrainParams(BaseModel):
             during training.
         pooling (str): Pooling strategy applied on top of the backbone.
             Must be one of ``VALID_POOLINGS``. Defaults to ``"gap"``.
-        num_classes (int): Number of target classes. Must be positive.
         checkpoint (str | None): Optional path to a checkpoint to resume
             training from.
         epochs (int): Number of training epochs. Must be positive.
@@ -68,7 +67,6 @@ class TrainParams(BaseModel):
     pretrained: bool = Field(default=False)
     freeze_backbone: bool = Field(default=False)
     pooling: str = Field(default="gap")
-    num_classes: int = Field(gt=0)
     checkpoint: str | None = Field(default=None)
     epochs: int = Field(default=10, gt=0)
     patience: int = Field(default=0, ge=0)

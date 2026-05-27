@@ -9,15 +9,18 @@ import client from '../api/client';
 /** Payload for starting a new training job. */
 export interface TrainingPayload {
   // Data config
-  trainingData: string;
-  validationData: string | null;
+  experimentName: string;
+  description: string | null;
+  datasetId: number | null;
+  trainingSet: string;
+  validationSet: string | null;
   samplingRate?: number;
   segmentDuration: number | null;
   // Model settings
   backbone: string;
+  pooling: string | null;
   pretrained: boolean;
   freezeBackbone: boolean;
-  numClasses: number;
   checkpoint: string | null;
   // Hyperparameters
   epochs?: number;

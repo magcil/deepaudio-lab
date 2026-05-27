@@ -98,7 +98,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
         lr=params.learning_rate,
         sample_rate=params.sampling_rate,
         segment_duration=params.segment_duration,
-        n_classes=params.num_classes,
+        n_classes=len(class_mapping),
         backbone=params.backbone,
         pretrained_backbone=params.pretrained,
         pooling=params.pooling,

@@ -118,6 +118,28 @@ def get_datasets(user_id: str, db: Session = Depends(get_db)):
     return dataset_service.get_all_for_user(db=db, user_id=user_id)
 
 
+@router.get(
+    "/{dataset_id}/splits",
+    status_code=status.HTTP_200_OK,
+    response_model=list[str],
+)
+def get_splits(dataset_id: int, db: Session = Depends(get_db)):
+    """List available split directories stored under a dataset's S3 prefix.
+
+    Args:
+        dataset_id (int): ID of the dataset to inspect.
+        db (Session): SQLAlchemy session injected by FastAPI.
+
+    Raises:
+        EntityNotFoundError: If no dataset with the given ID exists (→ 404).
+
+    Returns:
+        list[str]: Split names found directly under the dataset prefix
+            (e.g. ``["train", "val"]``).
+    """
+    return dataset_service.get_splits(db=db, dataset_id=dataset_id)
+
+
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(dataset_id: int, db: Session = Depends(get_db)):
     """Delete a dataset and all its files from storage.
