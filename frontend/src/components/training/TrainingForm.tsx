@@ -10,7 +10,6 @@ export interface TrainingFormData {
   experimentName: string
   description: string
   trainingData: string
-  classMapping: string
   validationData: string
   samplingRate: string
   segmentDuration: string
@@ -36,7 +35,6 @@ const INITIAL_FORM: TrainingFormData = {
   experimentName: '',
   description: '',
   trainingData: '',
-  classMapping: '',
   validationData: '',
   samplingRate: '',
   segmentDuration: '',
@@ -89,7 +87,6 @@ export default function TrainingForm() {
       experimentName: form.experimentName,
       description: form.description || null,
       trainingData: form.trainingData,
-      classMapping: form.classMapping || null,
       validationData: form.validationData || null,
       samplingRate: form.samplingRate ? parseInt(form.samplingRate) : undefined,
       segmentDuration: form.segmentDuration ? parseFloat(form.segmentDuration) : null,

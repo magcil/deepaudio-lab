@@ -10,7 +10,6 @@ import client from '../api/client';
 export interface TrainingPayload {
   // Data config
   trainingData: string;
-  classMapping: string | null;
   validationData: string | null;
   samplingRate?: number;
   segmentDuration: number | null;

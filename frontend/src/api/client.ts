@@ -40,6 +40,18 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+async function patch(path: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new ApiError(response.status, error || `HTTP ${response.status}`);
+  }
+}
+
 async function del(path: string): Promise<void> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'DELETE',
@@ -55,6 +67,7 @@ async function del(path: string): Promise<void> {
 const client = {
   get,
   post,
+  patch,
   delete: del,
 };
 
