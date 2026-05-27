@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
-import EvalDataConfigSection from './EvalDataConfigSection'
 import EvalHyperparametersSection from './EvalHyperparametersSection'
 import { startEvaluation, getEvaluationOptions, getTrainRuns, type TrainRun } from '../../services/evaluationService'
-import { getDatasets, type Dataset } from '../../services/datasetService'
+import { getDatasetSplits } from '../../services/datasetService'
 import '../training/TrainingForm.css'
 import './EvaluationForm.css'
 
 export interface EvaluationFormData {
-  evaluationData: string
+  testSet: string
   batchSize: string
   workers: string
   device: 'cpu' | 'gpu' | 'mps'
@@ -15,7 +14,7 @@ export interface EvaluationFormData {
 }
 
 const INITIAL_FORM: EvaluationFormData = {
-  evaluationData: '',
+  testSet: '',
   batchSize: '',
   workers: '',
   device: 'cpu',
@@ -26,9 +25,9 @@ export default function EvaluationForm() {
   const [gpuIndexes, setGpuIndexes] = useState<number[]>([])
   const [cudaAvailable, setCudaAvailable] = useState(false)
   const [mpsAvailable, setMpsAvailable] = useState(false)
-  const [datasets, setDatasets] = useState<Dataset[]>([])
   const [trainRuns, setTrainRuns] = useState<TrainRun[]>([])
-  const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null)
+  const [selectedRun, setSelectedRun] = useState<TrainRun | null>(null)
+  const [splits, setSplits] = useState<string[]>([])
   const [experimentError, setExperimentError] = useState(false)
   const [open, setOpen] = useState(false)
   const [started, setStarted] = useState(false)
@@ -44,14 +43,17 @@ export default function EvaluationForm() {
       .catch(console.error)
 
     getTrainRuns()
-      .then(runs => {
-        console.log('Train runs:', runs)
-        setTrainRuns(runs)
-      })
+      .then(setTrainRuns)
       .catch(console.error)
-
-    getDatasets().then(setDatasets).catch(console.error)
   }, [])
+
+  useEffect(() => {
+    if (selectedRun?.dataset_id == null) {
+      setSplits([])
+      return
+    }
+    getDatasetSplits(selectedRun.dataset_id).then(setSplits).catch(() => setSplits([]))
+  }, [selectedRun])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -63,13 +65,13 @@ export default function EvaluationForm() {
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!selectedExperiment) {
+    if (!selectedRun) {
       setExperimentError(true)
       return
     }
     const payload = {
-      evaluationData: form.evaluationData,
-      trainName: selectedExperiment,
+      testSet: form.testSet,
+      trainRunId: selectedRun.id,
       batchSize: form.batchSize ? parseInt(form.batchSize) : undefined,
       workers: form.workers ? parseInt(form.workers) : undefined,
       device: form.device,
@@ -79,15 +81,16 @@ export default function EvaluationForm() {
     const { task_id } = await startEvaluation(payload)
     console.log('Evaluation started, task_id:', task_id)
     setForm(INITIAL_FORM)
-    setSelectedExperiment(null)
+    setSelectedRun(null)
     setStarted(true)
     setTimeout(() => setStarted(false), 8000)
   }
 
-  function handleSelectExperiment(name: string) {
-    setSelectedExperiment(name)
+  function handleSelectExperiment(run: TrainRun) {
+    setSelectedRun(run)
     setExperimentError(false)
     setOpen(false)
+    setForm(prev => ({ ...prev, testSet: '' }))
   }
 
   return (
@@ -102,8 +105,8 @@ export default function EvaluationForm() {
             Choose Experiment
             <span className="chevron">▼</span>
           </button>
-          {selectedExperiment && (
-            <span className="experiment-selected-label">{selectedExperiment}</span>
+          {selectedRun && (
+            <span className="experiment-selected-label">{selectedRun.name}</span>
           )}
         </div>
         {experimentError && (
@@ -115,16 +118,26 @@ export default function EvaluationForm() {
               <div
                 key={run.id}
                 className="experiment-dropdown-item"
-                onClick={() => handleSelectExperiment(run.name)}
+                onClick={() => handleSelectExperiment(run)}
               >
                 {run.name}
               </div>
             ))}
           </div>
         )}
+        {selectedRun && splits.length > 0 && (
+          <div className="form-field" style={{ marginTop: '12px' }}>
+            <label htmlFor="testSet">Test Set</label>
+            <select id="testSet" name="testSet" value={form.testSet} onChange={handleChange} required>
+              <option value="">Select a split</option>
+              {splits.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      <EvalDataConfigSection values={form} onChange={handleChange} datasets={datasets} />
       <EvalHyperparametersSection
         values={form}
         onChange={handleChange}

@@ -1,8 +1,8 @@
 import client from '../api/client';
 
 export interface EvaluationPayload {
-  evaluationData: string;
-  trainName: string;
+  testSet: string;
+  trainRunId: number;
   batchSize?: number;
   workers?: number;
   device: 'cpu' | 'gpu' | 'mps';
@@ -28,6 +28,7 @@ export const getEvaluationOptions = (): Promise<EvaluationOptions> =>
 export interface TrainRun {
   id: number;
   name: string;
+  dataset_id: number | null;
 }
 
 export const getTrainRuns = (): Promise<TrainRun[]> =>

@@ -140,9 +140,9 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
             representation of the updated experiment parameters.
     """
     # Validate referenced train experiment
-    train_exp = run_repository.get_by_name(db, evaluation_params.train_name)
+    train_exp = run_repository.get_by_id(db, evaluation_params.train_run_id)
     if train_exp is None:
-        raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
+        raise ReferencedEntityNotFoundError("Run", evaluation_params.train_run_id)
 
     if train_exp.has_evaluation:
         raise InvalidStateError("Experiment already evaluated")
@@ -155,7 +155,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     # Update experiment params
     exp_params = train_exp.experiment_params
 
-    exp_params.path_to_test = evaluation_params.evaluation_data
+    exp_params.path_to_test = evaluation_params.test_set
     experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
 
     # TODO: RENAME PATH VARIABLES?
@@ -188,6 +188,7 @@ def _serialize_run(run) -> dict:
         dict: Dictionary containing the run's id, name, description,
             task_type, and created_at timestamp.
     """
+    dataset_id = run.experiment_params.dataset_id if run.experiment_params else None
     return {
         "id": run.id,
         "name": run.name,
@@ -195,6 +196,7 @@ def _serialize_run(run) -> dict:
         "task_type": run.task_type,
         "has_evaluation": run.has_evaluation,
         "created_at": run.created_at,
+        "dataset_id": dataset_id,
     }
 
 
