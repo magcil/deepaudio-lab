@@ -34,8 +34,8 @@ class S3Checkpointer(BaseCallback):
             run_id: Training run ID, used to scope the checkpoint key.
             logger: Optional logger. Defaults to the DeepAudioX logger.
         """
-        #TODO: REMOVE HARDCODED USER
-        user_id = 'default'
+        # TODO: REMOVE HARDCODED USER
+        user_id = "default"
         self.bucket = CHECKPOINTS_BUCKET
         self.key = f"run_{run_id}/{user_id}/{checkpoint_name}"
         self.logger = logger or get_logger()

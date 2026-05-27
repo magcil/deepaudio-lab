@@ -6,19 +6,18 @@ from typing import cast
 
 import numpy as np
 import torch
-from deepaudiox import AudioClassifier, audio_classification_dataset_from_dir
 from deepaudiox.utils.training_utils import get_device
 from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader
 
+from adapters.classifiers import S3AudioClassifier
+from adapters.dataset import S3AudioClassificationDataset
+from adapters.utils import create_file_to_class_mapping_from_s3
 from db.session import SessionLocal
 from exceptions.exceptions import ReferencedEntityNotFoundError
 from models.run import EvaluationStatus, TaskType
 from repositories import run_repository
 from repositories.run_repository import update_evaluation_status
-from adapters.dataset import S3AudioClassificationDataset
-from adapters.classifiers import S3AudioClassifier
-from adapters.utils import create_file_to_class_mapping_from_s3
 
 
 @dataclass
@@ -76,25 +75,27 @@ class EvaluationService:
 
             update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
 
-            #TODO: REMOVE HARDCODED USERID
-            user_id = 'default'
-            model = S3AudioClassifier.from_checkpoint(path=f"run_{run_id}/{user_id}/{exp_params.get('path_to_checkpoint')}")
+            # TODO: REMOVE HARDCODED USERID
+            user_id = "default"
+            model = S3AudioClassifier.from_checkpoint(
+                path=f"run_{run_id}/{user_id}/{exp_params.get('path_to_checkpoint')}"
+            )
             model.to(device)
             model.eval()
 
             test_file_to_class_mapping = create_file_to_class_mapping_from_s3(
-                                                                        user_id='default',
-                                                                        dataset_name=exp_params.get('dataset_name'), 
-                                                                        split=exp_params.get('path_to_test'), 
-                                                                        bucket='raw-audios'
-                                                                        )
+                user_id="default",
+                dataset_name=exp_params.get("dataset_name"),
+                split=exp_params.get("path_to_test"),
+                bucket="raw-audios",
+            )
             dataset = S3AudioClassificationDataset(
-                                file_to_class_mapping=test_file_to_class_mapping,
-                                sample_rate=exp_params.get('sample_rate'),
-                                class_mapping=class_mapping,
-                                segment_duration=exp_params.get('segment_duration')
-                                )
-            
+                file_to_class_mapping=test_file_to_class_mapping,
+                sample_rate=exp_params.get("sample_rate"),
+                class_mapping=class_mapping,
+                segment_duration=exp_params.get("segment_duration"),
+            )
+
             dataloader = DataLoader(
                 dataset,
                 batch_size=exp_params["batch_size"],

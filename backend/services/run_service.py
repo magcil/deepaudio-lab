@@ -1,21 +1,18 @@
 # services/run_service.py
 
-import json
 
 from sqlalchemy.orm import Session
 
+from adapters.utils import get_class_mapping_from_s3_dataset
 from exceptions.exceptions import (
-    InvalidResourceError,
     InvalidStateError,
     ReferencedEntityNotFoundError,
-    ResourceNotFoundError,
 )
 from models.experiment_params import ExperimentParams
 from models.run import EvaluationStatus, Run, TaskType
 from repositories import experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
-from adapters.utils import get_class_mapping_from_s3_dataset
 
 
 def get_all(db: Session) -> list[dict]:
@@ -81,14 +78,10 @@ def register_train(db: Session, params: TrainParams) -> dict:
         dict: Serialized run detail including the new run's metadata and
             its persisted experiment parameters.
     """
-    #TODO: ADD TRY EXCEPT?
+    # TODO: ADD TRY EXCEPT?
     class_mapping = get_class_mapping_from_s3_dataset(
-                                                        user_id='default', 
-                                                        dataset_name=params.dataset,
-                                                        split=params.training_set,
-                                                        bucket='raw-audios'
-                                                        )
-    
+        user_id="default", dataset_name=params.dataset, split=params.training_set, bucket="raw-audios"
+    )
 
     run = Run(name=params.experiment_name, description=params.description, task_type=TaskType.train)
     exp_params = ExperimentParams(
@@ -106,7 +99,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
         pretrained_backbone=params.pretrained,
         pooling=params.pooling,
         freeze_backbone=params.freeze_backbone,
-        #TODO: CHANGE paths?
+        # TODO: CHANGE paths?
         path_to_checkpoint=params.checkpoint,
         dataset_name=params.dataset,
         path_to_train=params.training_set,
@@ -162,7 +155,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams):
     exp_params.path_to_test = evaluation_params.evaluation_data
     experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
 
-    #TODO: RENAME PATH VARIABLES?
+    # TODO: RENAME PATH VARIABLES?
     exp_params_dict = {
         "dataset_name": exp_params.dataset_name,
         "path_to_checkpoint": exp_params.path_to_checkpoint,
