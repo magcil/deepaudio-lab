@@ -19,7 +19,7 @@ export default function Datasets() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
 
   function fetchDatasets() {
-    getDatasets().then(setDatasets).catch(() => {})
+    getDatasets().then(data => { console.log('datasets:', data); setDatasets(data) }).catch(() => {})
   }
 
   useEffect(() => { fetchDatasets() }, [])
@@ -97,7 +97,7 @@ export default function Datasets() {
           <h2 className="section-heading">Your Datasets</h2>
           <div className="experiment-grid">
             {datasets.map(ds => (
-              <div key={ds.dataset_id} className="experiment-card">
+              <div key={ds.id} className="experiment-card">
                 <div className="experiment-card__header">
                   <p className="experiment-card__name">{ds.name}</p>
                 </div>

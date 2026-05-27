@@ -12,7 +12,7 @@ interface PresignResponse {
 }
 
 export interface Dataset {
-  dataset_id: string
+  id: number
   name: string
   description: string
   status: string
