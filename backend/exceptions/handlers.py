@@ -9,6 +9,7 @@ from exceptions.exceptions import (
     DuplicateEntityError,
     EntityNotFoundError,
     InvalidStateError,
+    QuotaExceededError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
 )
@@ -104,6 +105,19 @@ def register_exception_handlers(app: FastAPI) -> None:
             JSONResponse: A 422 response carrying the exception message.
         """
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(QuotaExceededError)
+    async def quota_exceeded(request: Request, exc: QuotaExceededError):
+        """Handle uploads that would exceed the user's storage quota.
+
+        Args:
+            request (Request): The incoming request.
+            exc (QuotaExceededError): The raised quota error.
+
+        Returns:
+            JSONResponse: A 413 response carrying the exception message.
+        """
+        return JSONResponse(status_code=413, content={"detail": str(exc)})
 
     @app.exception_handler(InvalidStateError)
     async def invalid_state(request: Request, exc: InvalidStateError):

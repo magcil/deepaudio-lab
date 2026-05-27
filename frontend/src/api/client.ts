@@ -1,5 +1,14 @@
 export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'GET',
@@ -8,7 +17,7 @@ async function get<T>(path: string): Promise<T> {
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(error || `HTTP ${response.status}`);
+    throw new ApiError(response.status, error || `HTTP ${response.status}`);
   }
 
   const data = await response.json();
@@ -24,11 +33,23 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(error || `HTTP ${response.status}`);
+    throw new ApiError(response.status, error || `HTTP ${response.status}`);
   }
 
   const data = await response.json();
   return data as T;
+}
+
+async function patch(path: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new ApiError(response.status, error || `HTTP ${response.status}`);
+  }
 }
 
 async function del(path: string): Promise<void> {
@@ -39,13 +60,14 @@ async function del(path: string): Promise<void> {
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(error || `HTTP ${response.status}`);
+    throw new ApiError(response.status, error || `HTTP ${response.status}`);
   }
 }
 
 const client = {
   get,
   post,
+  patch,
   delete: del,
 };
 

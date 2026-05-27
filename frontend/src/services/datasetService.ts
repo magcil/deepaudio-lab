@@ -7,11 +7,43 @@ interface PresignedItem {
 }
 
 interface PresignResponse {
+  dataset_id: string
   urls: PresignedItem[]
 }
 
-export function getPresignedUrls(paths: string[], user: string): Promise<PresignResponse> {
-  return client.post<PresignResponse>('/storage/upload/dataset/presigned', { paths, user })
+export interface Dataset {
+  id: number
+  name: string
+  description: string
+  s3_prefix: string
+  status: string
+  size_bytes: number | null
+  num_files: number | null
+  created_at: string
+}
+
+export function getDatasets(): Promise<Dataset[]> {
+  return client.get<Dataset[]>('/datasets?user_id=default')
+}
+
+export function getPresignedUrls(paths: string[], totalBytes: number, datasetName: string, description: string): Promise<PresignResponse> {
+  return client.post<PresignResponse>('/datasets/presigned', { user_id: 'default', dataset_name: datasetName, description, paths, total_bytes: totalBytes })
+}
+
+export function confirmDataset(datasetId: string, sizeBytes: number, numFiles: number): Promise<void> {
+  return client.post<void>(`/datasets/${datasetId}/confirm`, { size_bytes: sizeBytes, num_files: numFiles })
+}
+
+export function markDatasetError(datasetId: string): Promise<void> {
+  return client.patch(`/datasets/${datasetId}/error`)
+}
+
+export function getDatasetSplits(datasetId: number): Promise<string[]> {
+  return client.get<string[]>(`/datasets/${datasetId}/splits`)
+}
+
+export function deleteDataset(datasetId: number): Promise<void> {
+  return client.delete(`/datasets/${datasetId}`)
 }
 
 export async function uploadFileToPresignedUrl(url: string, file: File): Promise<void> {

@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from deepaudiox.schemas.items import AudioClassificationItem
 from torch.utils.data import Dataset
 
+from storage.client import DATA_BUCKET
+
 from .utils import (
     get_audio_duration_from_s3,
     load_audio_from_s3,
 )
-
-from ..storage.client import DATA_BUCKET
 
 
 class S3AudioClassificationDataset(Dataset):

@@ -4,7 +4,6 @@ from pathlib import Path
 import models  # noqa: F401 — registers all SQLAlchemy models in this process
 from db.session import SessionLocal
 from models.classification_report import ClassificationReport
-from models.run import Run
 from repositories import classification_report_repository
 from services.evaluation_service import EvaluationService
 from worker.app import celery_app
@@ -29,6 +28,9 @@ def run_evaluation(self, run_id: int, exp_params: dict):
     service = EvaluationService()
     report = service.perform_evaluation(run_id, exp_params, progress_callback=progress_callback)
 
+    if report is None:
+        return {"status": "failed"}
+
     # TODO: DECOUPLE DB COMMUNICATION FROM CELERY WORKER
     db = SessionLocal()
     try:
@@ -36,9 +38,6 @@ def run_evaluation(self, run_id: int, exp_params: dict):
             db=db,
             report=ClassificationReport(run_id=run_id, report=report),
         )
-        run = db.query(Run).filter(Run.id == run_id).first()
-        if run is not None:
-            run.has_evaluation = True
         db.commit()
     except Exception:
         db.rollback()

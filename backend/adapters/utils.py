@@ -4,20 +4,20 @@ import struct
 import librosa
 import numpy as np
 
-from ..storage.client import s3_client
+from storage.client import s3_client
 
 
-def get_class_mapping_from_s3_dataset(user_id: str, dataset_name: str, split: str, bucket: str) -> dict[str, int]:
+def get_class_mapping_from_s3_dataset(s3_prefix: str, split: str, bucket: str) -> dict[str, int]:
     """Generate the DeepAudioX class mapping from a dataset stored in S3.
 
-    Lists virtual subdirectories under ``{user_id}/{dataset_name}/{split}/``
+    Lists virtual subdirectories under ``{s3_prefix}{split}/``
     using the S3 delimiter API — no file content is downloaded.
 
     Expected key structure::
 
         bucket/
         └── {user_id}/
-            └── {dataset_name}/
+            └── {dataset_id}/
                 └── {split}/
                     ├── class_a/
                     │   └── audio1.wav
@@ -25,8 +25,7 @@ def get_class_mapping_from_s3_dataset(user_id: str, dataset_name: str, split: st
                         └── audio2.wav
 
     Args:
-        user_id: The ID of the user who owns the dataset.
-        dataset_name: The name of the dataset.
+        s3_prefix: The dataset's storage prefix (e.g. ``"default/1/"``).
         split: The dataset split (e.g., 'train', 'val', 'test').
         bucket: The S3 bucket where datasets are stored.
 
@@ -36,7 +35,7 @@ def get_class_mapping_from_s3_dataset(user_id: str, dataset_name: str, split: st
     Raises:
         ValueError: If no classes are found under the given prefix.
     """
-    prefix = f"{user_id}/{dataset_name}/{split}/"
+    prefix = f"{s3_prefix}{split}/"
 
     paginator = s3_client.get_paginator("list_objects_v2")
     class_names = []
@@ -51,20 +50,19 @@ def get_class_mapping_from_s3_dataset(user_id: str, dataset_name: str, split: st
 
     return {name: idx for idx, name in enumerate(sorted(class_names))}
 
-def create_file_to_class_mapping_from_s3(
-    user_id: str, dataset_name: str, split: str, bucket: str
-) -> dict[str, str]:
+
+def create_file_to_class_mapping_from_s3(s3_prefix: str, split: str, bucket: str) -> dict[str, str]:
     """Build the file-to-class mapping required by DeepAudioX's AudioClassificationDataset.
 
-    Lists all ``.wav`` objects under ``{user_id}/{dataset_name}/{split}/`` and
-    maps each S3 key to its class name, derived from the subdirectory level
-    immediately after the split.
+    Lists all ``.wav`` objects under ``{s3_prefix}{split}/`` and maps each S3
+    key to its class name, derived from the subdirectory level immediately
+    after the split.
 
     Expected key structure::
 
         bucket/
         └── {user_id}/
-            └── {dataset_name}/
+            └── {dataset_id}/
                 └── {split}/
                     ├── class_a/
                     │   └── audio1.wav
@@ -72,19 +70,19 @@ def create_file_to_class_mapping_from_s3(
                         └── audio2.wav
 
     Args:
-        user_id: The ID of the user who owns the dataset.
-        dataset_name: The name of the dataset.
+        s3_prefix: The dataset's storage prefix, trailing slash included
+            (e.g. ``"default/1/"``).
         split: The dataset split (e.g., 'train', 'val', 'test').
         bucket: The S3 bucket where datasets are stored.
 
     Returns:
         A dictionary mapping S3 keys to class name strings,
-        e.g. ``{"user/dataset/train/class_a/audio1.wav": "class_a"}``.
+        e.g. ``{"default/1/train/class_a/audio1.wav": "class_a"}``.
 
     Raises:
         ValueError: If no .wav files are found under the given prefix.
     """
-    prefix = f"{user_id}/{dataset_name}/{split}/"
+    prefix = f"{s3_prefix}{split}/"
 
     paginator = s3_client.get_paginator("list_objects_v2")
     file_to_class: dict[str, str] = {}
@@ -94,7 +92,7 @@ def create_file_to_class_mapping_from_s3(
             if not key.lower().endswith(".wav"):
                 continue
             # Strip the prefix to get "class_name/filename.wav"
-            relative = key[len(prefix):]
+            relative = key[len(prefix) :]
             class_name = relative.split("/")[0]
             file_to_class[key] = class_name
 
@@ -102,6 +100,7 @@ def create_file_to_class_mapping_from_s3(
         raise ValueError(f"No .wav files found in s3://{bucket}/{prefix}")
 
     return file_to_class
+
 
 def get_audio_duration_from_s3(bucket: str, key: str) -> float:
     """Get the duration of a WAV file stored in S3 by reading only its 44-byte header.

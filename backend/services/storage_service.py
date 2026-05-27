@@ -1,4 +1,15 @@
+from storage.client import DATA_BUCKET
+from storage.filer import delete_prefix
 from storage.s3_storage import put_presigned_url
+
+
+def delete_dataset_files(s3_prefix: str) -> None:
+    """Delete all files belonging to a dataset from storage.
+
+    Args:
+        s3_prefix: Key prefix of the dataset (e.g. ``"default/gtzan/"``).
+    """
+    delete_prefix(bucket=DATA_BUCKET, prefix=s3_prefix)
 
 
 def put_user_presigned_url(user: str, bucket: str, suffix_file_path: str, expires_in: int = 3600) -> tuple[str, str]:

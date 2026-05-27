@@ -31,7 +31,6 @@ class TrainParams(BaseModel):
             during training.
         pooling (str): Pooling strategy applied on top of the backbone.
             Must be one of ``VALID_POOLINGS``. Defaults to ``"gap"``.
-        num_classes (int): Number of target classes. Must be positive.
         checkpoint (str | None): Optional path to a checkpoint to resume
             training from.
         epochs (int): Number of training epochs. Must be positive.
@@ -59,15 +58,15 @@ class TrainParams(BaseModel):
         alias_generator=to_camel,
     )
 
-    training_data: str
-    validation_data: str | None = Field(default=None)
+    dataset_id: int
+    training_set: str
+    validation_set: str | None = Field(default=None)
     sampling_rate: int = Field(default=16_000, gt=0)
     segment_duration: float | None = Field(default=None, gt=0)
     backbone: str
     pretrained: bool = Field(default=False)
     freeze_backbone: bool = Field(default=False)
     pooling: str = Field(default="gap")
-    num_classes: int = Field(gt=0)
     checkpoint: str | None = Field(default=None)
     epochs: int = Field(default=10, gt=0)
     patience: int = Field(default=0, ge=0)
@@ -76,7 +75,6 @@ class TrainParams(BaseModel):
     batch_size: int = Field(default=8, gt=0)
     gpu_index: int | None = Field(default=None, ge=0)
     device: str = Field(default="cpu")
-    class_mapping: str
     experiment_name: str = Field(min_length=1)
     description: str | None = Field(default=None)
 

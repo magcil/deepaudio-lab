@@ -1,11 +1,26 @@
+import { useState, useEffect } from 'react'
 import type { TrainingFormData } from './TrainingForm'
+import type { Dataset } from '../../services/datasetService'
+import { getDatasetSplits } from '../../services/datasetService'
 
 interface Props {
-  values: Pick<TrainingFormData, 'experimentName' | 'description' | 'trainingData' | 'classMapping' | 'validationData' | 'samplingRate' | 'segmentDuration'>
-  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  values: Pick<TrainingFormData, 'experimentName' | 'description' | 'datasetId' | 'trainingSet' | 'validationSet' | 'samplingRate' | 'segmentDuration'>
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void
+  onDatasetChange: (id: number | null) => void
+  datasets: Dataset[]
 }
 
-export default function DataConfigSection({ values, onChange }: Props) {
+export default function DataConfigSection({ values, onChange, onDatasetChange, datasets }: Props) {
+  const [splits, setSplits] = useState<string[]>([])
+
+  useEffect(() => {
+    if (values.datasetId === null) {
+      setSplits([])
+      return
+    }
+    getDatasetSplits(values.datasetId).then(setSplits).catch(() => setSplits([]))
+  }, [values.datasetId])
+
   return (
     <div className="form-card">
       <h3 className="form-section-title">Data Configuration</h3>
@@ -39,45 +54,46 @@ export default function DataConfigSection({ values, onChange }: Props) {
       </div>
 
       <div className="form-field">
-        <label htmlFor="trainingData">Training Data</label>
-        <input
-          id="trainingData"
-          name="trainingData"
-          type="text"
-          placeholder="Path or identifier for training dataset"
-          value={values.trainingData}
-          onChange={onChange}
+        <label htmlFor="datasetId">Select Dataset</label>
+        <select
+          id="datasetId"
+          value={values.datasetId ?? ''}
+          onChange={e => onDatasetChange(e.target.value ? Number(e.target.value) : null)}
           required
-        />
+        >
+          <option value="">Select a dataset</option>
+          {datasets.filter(ds => ds.status === 'ready').map(ds => (
+            <option key={ds.id} value={ds.id}>{ds.name}</option>
+          ))}
+        </select>
       </div>
 
-      <div className="form-field">
-        <label htmlFor="classMapping">Class Mapping</label>
-        <input
-          id="classMapping"
-          name="classMapping"
-          type="text"
-          placeholder="Path or identifier for class mapping"
-          value={values.classMapping}
-          onChange={onChange}
-          required
-        />
-      </div>
+      {values.datasetId !== null && (
+        <div className="form-field">
+          <label htmlFor="trainingSet">Training Set</label>
+          <select id="trainingSet" name="trainingSet" value={values.trainingSet} onChange={onChange} required>
+            <option value="">Select a split</option>
+            {splits.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      <div className="form-field">
-        <label htmlFor="validationData">
-          Validation Data
-          <span className="field-optional">optional</span>
-        </label>
-        <input
-          id="validationData"
-          name="validationData"
-          type="text"
-          placeholder="Path or identifier for validation dataset"
-          value={values.validationData}
-          onChange={onChange}
-        />
-      </div>
+      {values.datasetId !== null && (
+        <div className="form-field">
+          <label htmlFor="validationSet">
+            Validation Set
+            <span className="field-optional">optional</span>
+          </label>
+          <select id="validationSet" name="validationSet" value={values.validationSet} onChange={onChange}>
+            <option value="">None</option>
+            {splits.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="form-row">
         <div className="form-field">

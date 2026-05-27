@@ -28,8 +28,8 @@ class EvaluationParams(BaseModel):
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True, alias_generator=to_camel)
 
-    train_name: str
-    evaluation_data: str
+    train_run_id: int
+    test_set: str
     device: str = Field(default="cpu")
     gpu_index: int | None = Field(default=None)
     workers: int = Field(default=2)
