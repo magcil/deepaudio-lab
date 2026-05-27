@@ -14,6 +14,8 @@ from models.run import EvaluationStatus, Run, TaskType
 from repositories import dataset_repository, experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
+from storage.client import CHECKPOINTS_BUCKET
+from storage.filer import delete_prefix
 
 
 def get_all(db: Session) -> list[dict]:
@@ -54,7 +56,34 @@ def get_by_id(db: Session, run_id: int) -> dict | None:
     run = run_repository.get_by_id(db, run_id)
     if run is None:
         return None
-    return _serialize_run_detail(run)
+    return _serialize_run_detail(run, db)
+
+
+def delete(db: Session, run_id: int) -> bool:
+    """Delete a run and its S3 checkpoint.
+
+    Attempts to delete the checkpoint from SeaweedFS before removing the
+    DB row. S3 errors are swallowed so a missing or never-uploaded
+    checkpoint does not block the deletion.
+
+    Args:
+        db (Session): SQLAlchemy database session.
+        run_id (int): Primary key of the run to delete.
+
+    Returns:
+        bool: True if a run was deleted, False if not found.
+    """
+    run = run_repository.get_by_id(db, run_id)
+    if run is None:
+        return False
+
+    if run.experiment_params and run.experiment_params.path_to_checkpoint:
+        try:
+            delete_prefix(bucket=CHECKPOINTS_BUCKET, prefix=f"run_{run_id}/")
+        except Exception:
+            pass
+
+    return run_repository.delete(db, run_id)
 
 
 def register_train(db: Session, params: TrainParams) -> dict:
@@ -112,7 +141,7 @@ def register_train(db: Session, params: TrainParams) -> dict:
     )
 
     created_run = run_repository.create_run_with_params(db=db, run=run, exp_params=exp_params)
-    return _serialize_run_detail(created_run)
+    return _serialize_run_detail(created_run, db)
 
 
 def register_evaluation(db: Session, evaluation_params: EvaluationParams):
@@ -200,7 +229,7 @@ def _serialize_run(run) -> dict:
     }
 
 
-def _serialize_run_detail(run) -> dict:
+def _serialize_run_detail(run, db: Session) -> dict:
     """Serialize a Run ORM object into a detailed dictionary representation.
 
     Extends the base run serialization with experiment parameters, per-epoch
@@ -234,6 +263,7 @@ def _serialize_run_detail(run) -> dict:
     }
     if run.experiment_params:
         exp = run.experiment_params
+        dataset = dataset_repository.get_by_id(db, exp.dataset_id)
         result["exp_params"] = {
             "class_mapping": exp.class_mapping,
             "batch_size": exp.batch_size,
@@ -249,7 +279,7 @@ def _serialize_run_detail(run) -> dict:
             "pooling": exp.pooling,
             "freeze_backbone": exp.freeze_backbone,
             "path_to_checkpoint": exp.path_to_checkpoint,
-            "dataset_id": exp.dataset_id,
+            "dataset_name": dataset.name if dataset else None,
             "path_to_train": exp.path_to_train,
             "path_to_validation": exp.path_to_validation,
             "path_to_test": exp.path_to_test,

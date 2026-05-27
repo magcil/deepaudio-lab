@@ -42,6 +42,7 @@ export interface ExpParams {
   pooling: string;
   freeze_backbone: boolean;
   path_to_checkpoint: string;
+  dataset_name: string | null;
   path_to_train: string;
   path_to_validation: string | null;
   path_to_test: string | null;

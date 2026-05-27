@@ -7,4 +7,8 @@ celery_app = Celery(
     include=["worker.training", "worker.evaluation"],
 )
 
-celery_app.conf.update(task_track_started=True, task_track_progress=True)
+celery_app.conf.update(
+    task_track_started=True,
+    task_track_progress=True,
+    worker_prefetch_multiplier=1,
+)

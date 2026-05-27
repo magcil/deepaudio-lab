@@ -59,7 +59,7 @@ def delete_run(run_id: int, db: Session = Depends(get_db)):
     Raises:
         EntityNotFoundError: No run with the given ``run_id`` exists.
     """
-    deleted = run_repository.delete(db, run_id)
+    deleted = run_service.delete(db, run_id)
     if not deleted:
         raise EntityNotFoundError("Run", run_id)
 

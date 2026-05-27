@@ -108,6 +108,14 @@ export default function EvaluationForm() {
           {selectedRun && (
             <span className="experiment-selected-label">{selectedRun.name}</span>
           )}
+          {selectedRun && splits.length > 0 && (
+            <select id="testSet" name="testSet" className="test-set-select" value={form.testSet} onChange={handleChange} required>
+              <option value="">Test set</option>
+              {splits.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          )}
         </div>
         {experimentError && (
           <p className="experiment-picker-error">Please select an experiment before running evaluation.</p>
@@ -123,17 +131,6 @@ export default function EvaluationForm() {
                 {run.name}
               </div>
             ))}
-          </div>
-        )}
-        {selectedRun && splits.length > 0 && (
-          <div className="form-field" style={{ marginTop: '12px' }}>
-            <label htmlFor="testSet">Test Set</label>
-            <select id="testSet" name="testSet" value={form.testSet} onChange={handleChange} required>
-              <option value="">Select a split</option>
-              {splits.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
           </div>
         )}
       </div>
