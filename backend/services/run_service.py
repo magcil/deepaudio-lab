@@ -19,6 +19,16 @@ from schemas.train_params import TrainParams
 
 
 def get_all(db: Session, owner_id: str | None = None) -> list[dict]:
+    """Retrieve all runs, optionally scoped to a specific owner.
+
+    Args:
+        db (Session): SQLAlchemy database session.
+        owner_id (str | None): If provided, only returns runs created by
+            this user. If None, returns runs for all users.
+
+    Returns:
+        list[dict]: Serialized list of all matching runs.
+    """
     runs = run_repository.get_all(db, owner_id=owner_id)
     return [_serialize_run(run) for run in runs]
 
@@ -28,6 +38,8 @@ def get(db: Session, owner_id: str | None = None, **filters) -> list[dict]:
 
     Args:
         db (Session): SQLAlchemy database session.
+        owner_id (str | None): If provided, only returns runs created by
+            this user. If None, returns runs for all users.
         **filters: Dynamic Run field/value filters. ``None`` values are ignored.
 
     Returns:
@@ -42,6 +54,8 @@ def get_by_id(db: Session, run_id: int, owner_id: str | None = None) -> dict | N
     Args:
         db (Session): SQLAlchemy database session.
         run_id (int): Primary key of the run to retrieve.
+        owner_id (str | None): If provided, scopes the lookup to runs owned
+            by this user. If None, searches across all users.
 
     Returns:
         dict | None: Serialized run detail, or None if not found.
@@ -63,6 +77,7 @@ def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
         db (Session): Active SQLAlchemy session.
         params (TrainParams): Training configuration submitted by the client,
             including model settings, hyperparameters, and dataset paths.
+        owner_id (str): Keycloak subject ID of the user creating the run.
 
     Raises:
         ResourceNotFoundError: If the class-mapping file does not exist at
@@ -127,6 +142,8 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_
         db (Session): Active SQLAlchemy session.
         evaluation_params (EvaluationParams): User-provided evaluation
             configuration containing the training run name and test data path.
+        owner_id (str): Keycloak subject ID of the user requesting evaluation.
+            Used to verify ownership of the referenced training run.
 
     Raises:
         ReferencedEntityNotFoundError: If the referenced training run

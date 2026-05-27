@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
-import models.user  # noqa: F401 — registers User table with SQLAlchemy metadata
 from routers import auth, evaluation, run, tasks, training
 
 # Instantiate api

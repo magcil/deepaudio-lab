@@ -18,6 +18,17 @@ DISPLAY_STATES = ACTIVE_STATES | {"FAILURE"}
 
 
 class ActiveTask(BaseModel):
+    """Pydantic schema representing a Celery task with its associated run metadata.
+
+    Attributes:
+        task_id (str): Celery task UUID.
+        run_id (int): Primary key of the associated run.
+        experiment_name (str): Name of the experiment run.
+        task_type (str): Type of the run (train or evaluation).
+        created_at (datetime): Timestamp when the run was created.
+        state (str): Current Celery task state (e.g. PENDING, STARTED, SUCCESS).
+        info (dict | None): Additional task progress metadata, if available.
+    """
     task_id: str
     run_id: int
     experiment_name: str
@@ -29,6 +40,20 @@ class ActiveTask(BaseModel):
 
 @router.get("/", response_model=list[ActiveTask])
 def get_active_tasks(db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Return active and recently failed tasks visible to the authenticated user.
+
+    Queries runs that have a Celery task ID assigned and filters them to
+    those in PENDING, STARTED, PROGRESS, or FAILURE states. Admins receive
+    tasks for all users; regular users only see their own.
+
+    Args:
+        db (Session): SQLAlchemy database session.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
+
+    Returns:
+        list[ActiveTask]: Serialized list of active or failed tasks with
+            their current Celery state and progress metadata.
+    """
     owner_id = None if user.is_admin else user.sub
     runs = run_repository.get_with_task_ids(db, owner_id=owner_id)
     result = []

@@ -72,6 +72,24 @@ def get_training_options(_: UserInfo = Depends(get_current_user)):
 
 @router.get("/progress/{task_id}")
 async def get_progress(task_id: str, db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Stream training progress updates via Server-Sent Events.
+
+    Polls the Celery task state every 2 seconds and streams updates until
+    the task reaches a terminal state (SUCCESS, FAILURE, REVOKED). Regular
+    users can only access their own tasks; admins can access any task.
+
+    Args:
+        task_id (str): Celery task UUID returned by the train endpoint.
+        db (Session): SQLAlchemy database session.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
+
+    Raises:
+        HTTPException 403: If a non-admin user tries to access a task that
+            does not belong to them.
+
+    Returns:
+        StreamingResponse: SSE stream of task state and progress metadata.
+    """
     if not user.is_admin:
         run = run_repository.get_by_task_id(db, task_id)
         if run is None or run.created_by != user.sub:

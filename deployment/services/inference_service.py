@@ -1,9 +1,7 @@
 from pathlib import Path
-from typing import Any, Dict
 import json
 import numpy as np
 
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CLASS_MAP_FILE = BASE_DIR / "pretrained_models" / "class_mapping.json"

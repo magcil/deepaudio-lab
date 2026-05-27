@@ -1,5 +1,6 @@
-import models.user  # noqa: F401 — registers User with SQLAlchemy mapper before Run is loaded
 from celery import Celery
+
+import models.user  # noqa: F401 — registers User with SQLAlchemy mapper before Run is loaded
 
 celery_app = Celery(
     "deepaudio",

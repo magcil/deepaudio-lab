@@ -179,13 +179,13 @@ class TrainingService:
                 update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
             except Exception:
                 self.logger.exception("Also failed to mark run_id=%s as failure", run_id)
-            raise                                          # don't swallow                                    # don't swallow
+            raise                                     
         else:
             # Update training status to success
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
             self.logger.info("Training process complete.")
         finally:
-            if trainer is not None:                        # on_train_end always fires
+            if trainer is not None:
                 for cb in trainer.callbacks:
                     cb.on_train_end(trainer)
             db.close()

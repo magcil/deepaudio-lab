@@ -1,7 +1,7 @@
 # repositories/user_repository.py
 
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from exceptions.exceptions import RepositoryError
 from models.user import User
@@ -27,7 +27,14 @@ def delete_by_id(db: Session, id: str) -> None:
         raise RepositoryError(f"Failed to delete user '{id}'") from e
 
 
-def upsert(db: Session, id: str, username: str, email: str | None, first_name: str | None, last_name: str | None) -> None:
+def upsert(
+    db: Session, 
+    id: str, 
+    username: str, 
+    email: str | None, 
+    first_name: str | None, 
+    last_name: str | None
+) -> None:
     """Insert user if not exists, update their fields if anything changed.
 
     Args:
