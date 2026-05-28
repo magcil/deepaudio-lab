@@ -5,7 +5,7 @@ from keycloak.exceptions import KeycloakAuthenticationError, KeycloakPostError
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from keycloak import keycloak_admin, keycloak_openid
+from keycloak_config import keycloak_admin, keycloak_openid
 from repositories import user_repository
 from schemas.signup_request import SignupRequest
 from schemas.user_info import UserInfo
@@ -41,8 +41,8 @@ def register_user(db: Session, data: SignupRequest) -> dict:
                 "enabled": True,
                 "credentials": [
                     {
-                        "type": "password", 
-                        "value": data.password, 
+                        "type": "password",
+                        "value": data.password,
                         "temporary": False
                     }
                 ],
@@ -51,7 +51,7 @@ def register_user(db: Session, data: SignupRequest) -> dict:
         )
 
         keycloak_admin.assign_realm_roles(
-            user_id, 
+            user_id,
             [keycloak_admin.get_realm_role("regular")]
         )
 
@@ -63,18 +63,18 @@ def register_user(db: Session, data: SignupRequest) -> dict:
             first_name=data.first_name,
             last_name=data.last_name,
         )
-        
+
         return {"id": user_id, "username": data.username}
     except KeycloakPostError as e:
         if e.response_code == 409:
-            raise HTTPException from None (
+            raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Username or email already exists",
-            )
-        raise HTTPException from None (
+            ) from None
+        raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not create user",
-        )
+        ) from None
 
 
 def delete_user(db: Session, username: str) -> None:
@@ -92,10 +92,10 @@ def delete_user(db: Session, username: str) -> None:
     """
     user_id = keycloak_admin.get_user_id(username)
     if user_id is None:
-        raise HTTPException from None (
-            status_code=status.HTTP_404_NOT_FOUND, 
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{username}' not found"
-        )
+        ) from None
     keycloak_admin.delete_user(user_id)
     user_repository.delete_by_id(db, user_id)
 
@@ -120,10 +120,10 @@ def authenticate_user(username: str, password: str) -> str:
         token = keycloak_openid.token(username, password)
         return token["access_token"]
     except (KeycloakAuthenticationError, KeycloakPostError):
-        raise HTTPException from None (
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-        )
+        ) from None
 
 
 def _get_public_key() -> str:
@@ -177,17 +177,17 @@ def verify_token(token: str) -> UserInfo:
             roles=roles,
         )
     except jwt.ExpiredSignatureError:
-        raise HTTPException from None (
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
     except jwt.InvalidTokenError:
-        raise HTTPException from None (
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
 
 def get_current_user(
@@ -233,10 +233,10 @@ def require_admin(user: UserInfo = Depends(get_current_user)) -> UserInfo:
         UserInfo: The authenticated admin user.
     """
     if not user.is_admin:
-        raise HTTPException from None (
-            status_code=status.HTTP_403_FORBIDDEN, 
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
-        )
+        ) from None
     return user
 
 
@@ -253,8 +253,8 @@ def require_regular(user: UserInfo = Depends(get_current_user)) -> UserInfo:
         UserInfo: The authenticated regular user.
     """
     if not user.is_regular:
-        raise HTTPException from None (
-            status_code=status.HTTP_403_FORBIDDEN, 
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Only regular users can perform this action"
-        )
+        ) from None
     return user
