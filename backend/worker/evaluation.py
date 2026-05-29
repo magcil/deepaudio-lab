@@ -1,3 +1,4 @@
+import pickle
 import sys
 from pathlib import Path
 
@@ -39,8 +40,12 @@ def run_evaluation(self, run_id: int, exp_params: dict, user_id: str):
             report=ClassificationReport(run_id=run_id, report=report),
         )
         db.commit()
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        try:
+            pickle.dumps(exc)
+        except Exception:
+            raise RuntimeError(f"{type(exc).__name__}: {exc}") from None
         raise
     finally:
         db.close()

@@ -7,6 +7,7 @@ import Evaluation from './pages/Evaluation'
 import ExperimentDetail from './pages/ExperimentDetail'
 import ActivityMonitor from './pages/ActivityMonitor'
 import Datasets from './pages/Datasets'
+import keycloak from './auth/keycloak'
 
 type Page = 'homepage' | 'training' | 'evaluation' | 'experiment' | 'activity-monitor' | 'datasets'
 
@@ -19,6 +20,8 @@ function App() {
     setActivePage('experiment')
   }
 
+  const username = keycloak.tokenParsed?.preferred_username as string | undefined
+
   return (
     <div className="app-shell">
       <SideNav activePage={activePage} onNavigate={setActivePage} />
@@ -28,6 +31,15 @@ function App() {
       {activePage === 'experiment' && <ExperimentDetail id={selectedExperimentId!} onBack={() => setActivePage('homepage')} />}
       {activePage === 'activity-monitor' && <ActivityMonitor />}
       {activePage === 'datasets' && <Datasets />}
+      <div className="user-bar">
+        {username && <span className="user-bar__name">{username}</span>}
+        <button
+          className="user-bar__logout"
+          onClick={() => keycloak.logout({ redirectUri: window.location.origin })}
+        >
+          Logout
+        </button>
+      </div>
     </div>
   )
 }

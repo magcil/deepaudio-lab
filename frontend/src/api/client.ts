@@ -1,3 +1,5 @@
+import keycloak from '../auth/keycloak'
+
 export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 export class ApiError extends Error {
@@ -9,10 +11,18 @@ export class ApiError extends Error {
   }
 }
 
+async function authHeaders(): Promise<Record<string, string>> {
+  await keycloak.updateToken(30)
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${keycloak.token}`,
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
   });
 
   if (!response.ok) {
@@ -20,14 +30,13 @@ async function get<T>(path: string): Promise<T> {
     throw new ApiError(response.status, error || `HTTP ${response.status}`);
   }
 
-  const data = await response.json();
-  return data as T;
+  return response.json() as Promise<T>;
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -36,14 +45,13 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     throw new ApiError(response.status, error || `HTTP ${response.status}`);
   }
 
-  const data = await response.json();
-  return data as T;
+  return response.json() as Promise<T>;
 }
 
 async function patch(path: string): Promise<void> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
   });
 
   if (!response.ok) {
@@ -55,7 +63,7 @@ async function patch(path: string): Promise<void> {
 async function del(path: string): Promise<void> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
   });
 
   if (!response.ok) {

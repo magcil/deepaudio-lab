@@ -1,3 +1,4 @@
+import pickle
 import sys
 from pathlib import Path
 
@@ -33,7 +34,17 @@ def run_training(self, params: dict, class_mapping: dict, run_id: int, user_id: 
         )
 
     service = TrainingService()
-    service.perform_training(
-        TrainParams(**params), class_mapping, run_id=run_id, user_id=user_id, progress_callback=progress_callback
-    )
+    try:
+        service.perform_training(
+            TrainParams(**params), class_mapping, run_id=run_id, user_id=user_id, progress_callback=progress_callback
+        )
+    except Exception as exc:
+        # Some exceptions (e.g. botocore's dynamically-generated NoSuchKey) cannot be
+        # pickled, which prevents Celery from storing FAILURE state in Redis and leaves
+        # the task stuck in PROGRESS forever. Wrap them in a plain RuntimeError.
+        try:
+            pickle.dumps(exc)
+        except Exception:
+            raise RuntimeError(f"{type(exc).__name__}: {exc}") from None
+        raise
     return {"status": "done"}

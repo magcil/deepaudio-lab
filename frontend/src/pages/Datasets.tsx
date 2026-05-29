@@ -46,8 +46,6 @@ export default function Datasets() {
     setUploadError(null)
     const paths = entries.map(e => e.path)
     const totalBytes = entries.reduce((sum, e) => sum + e.file.size, 0)
-    console.log('presigned request', { user_id: 'default', dataset_name: meta.name, description: meta.description, paths, total_bytes: totalBytes })
-
     let data
     try {
       data = await getPresignedUrls(paths, totalBytes, meta.name, meta.description)
