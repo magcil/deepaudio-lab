@@ -13,7 +13,7 @@ from repositories import run_repository
 from schemas.evaluation_params import EvaluationOptionsResponse, EvaluationParams
 from schemas.user_info import UserInfo
 from services import run_service
-from services.auth_service import get_current_user, require_regular
+from auth.service import get_current_user, require_regular
 from worker.app import celery_app
 from worker.evaluation import run_evaluation
 

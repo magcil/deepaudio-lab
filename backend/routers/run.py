@@ -9,7 +9,7 @@ from models.run import EvaluationStatus, TrainingStatus
 from repositories import run_repository
 from schemas.user_info import UserInfo
 from services import run_service
-from services.auth_service import get_current_user
+from auth.service import get_current_user
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 

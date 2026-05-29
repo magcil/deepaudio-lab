@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from db.session import get_db
 from repositories import run_repository
 from schemas.user_info import UserInfo
-from services.auth_service import get_current_user
+from auth.service import get_current_user
 from worker.app import celery_app
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])

@@ -14,7 +14,7 @@ from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
 from schemas.user_info import UserInfo
 from services import run_service
-from services.auth_service import get_current_user, require_regular
+from auth.service import get_current_user, require_regular
 from worker.app import celery_app
 from worker.training import run_training
 

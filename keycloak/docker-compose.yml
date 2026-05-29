@@ -2,8 +2,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: deepaudio-keycloak
-    restart: unless-stopped
-    command: start-dev --health-enabled=true
+    command: start-dev --health-enabled=true --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
@@ -11,12 +10,7 @@ services:
       - "8080:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 40s
+      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
 
 volumes:
   keycloak_data:

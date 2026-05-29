@@ -7,7 +7,7 @@ from db.session import get_db
 from schemas.signup_request import SignupRequest
 from schemas.token_response import TokenResponse
 from schemas.user_info import UserInfo
-from services.auth_service import authenticate_user, delete_user, register_user, require_admin
+from auth.service import authenticate_user, delete_user, register_user, require_admin
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

@@ -5,7 +5,7 @@ from keycloak.exceptions import KeycloakAuthenticationError, KeycloakPostError
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from keycloak_config import keycloak_admin, keycloak_openid
+from auth.keycloak import keycloak_admin, keycloak_openid
 from repositories import user_repository
 from schemas.signup_request import SignupRequest
 from schemas.user_info import UserInfo
