@@ -1,0 +1,9 @@
+.alert-danger-dark {
+  background-color: #7b1e1e;
+  border-color: #5c1515;
+  color: #fff;
+}
+
+.alert-danger-dark .btn-close {
+  filter: invert(1);
+}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './SideNav.css'
 
-type Page = 'training' | 'evaluation' | 'homepage' | 'experiment' | 'activity-monitor'
+type Page = 'training' | 'evaluation' | 'homepage' | 'experiment' | 'activity-monitor' | 'datasets'
 
 
 interface SideNavProps {
@@ -68,6 +68,16 @@ export default function SideNav({ activePage, onNavigate }: SideNavProps) {
             {activePage === 'evaluation' && <span className="pill">Active</span>}
           </button>
 
+          {/* Datasets */}
+          <button
+            className={`nav-item ${activePage === 'datasets' ? 'is-active' : ''}`}
+            onClick={() => handleNav('datasets')}
+          >
+            Datasets
+            {activePage === 'datasets' && <span className="pill">Active</span>}
+          </button>
+          
+
           {/* Activity Monitor */}
           <button
             className={`nav-item ${activePage === 'activity-monitor' ? 'is-active' : ''}`}
@@ -76,6 +86,7 @@ export default function SideNav({ activePage, onNavigate }: SideNavProps) {
             Activity Monitor
             {activePage === 'activity-monitor' && <span className="pill">Active</span>}
           </button>
+
 
         </div>
       </nav>

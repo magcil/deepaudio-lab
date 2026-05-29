@@ -1,7 +1,7 @@
 import type { TrainingFormData } from './TrainingForm'
 
 interface Props {
-  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'modelSamplingRate' | 'numClasses' | 'checkpoint'>
+  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'modelSamplingRate' | 'checkpoint'>
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
   onToggle: (name: keyof TrainingFormData) => void
   backbones: string[]
@@ -49,36 +49,19 @@ export default function ModelSettingsSection({ values, onChange, onToggle, backb
         </div>
       </div>
 
-      <div className="form-row">
-        <div className="form-field">
-          <label htmlFor="modelSamplingRate">Sampling Rate (Hz)</label>
-          <input
-            id="modelSamplingRate"
-            name="modelSamplingRate"
-            type="number"
-            placeholder="e.g. 22050"
-            min={1}
-            step={1}
-            value={values.modelSamplingRate}
-            onChange={onChange}
-            required
-          />
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="numClasses">Number of Classes</label>
-          <input
-            id="numClasses"
-            name="numClasses"
-            type="number"
-            placeholder="e.g. 10"
-            min={1}
-            step={1}
-            value={values.numClasses}
-            onChange={onChange}
-            required
-          />
-        </div>
+      <div className="form-field">
+        <label htmlFor="modelSamplingRate">Sampling Rate (Hz)</label>
+        <input
+          id="modelSamplingRate"
+          name="modelSamplingRate"
+          type="number"
+          placeholder="e.g. 22050"
+          min={1}
+          step={1}
+          value={values.modelSamplingRate}
+          onChange={onChange}
+          required
+        />
       </div>
 
       <div className="form-field">

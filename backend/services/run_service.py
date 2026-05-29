@@ -1,21 +1,20 @@
 # services/run_service.py
 
-import json
-
 from sqlalchemy.orm import Session
 
+from adapters.utils import get_class_mapping_from_s3_dataset
 from exceptions.exceptions import (
-    InvalidResourceError,
+    EntityNotFoundError,
     InvalidStateError,
     ReferencedEntityNotFoundError,
-    ResourceNotFoundError,
-    UnauthorizedError,
 )
 from models.experiment_params import ExperimentParams
 from models.run import EvaluationStatus, Run, TaskType
-from repositories import experiment_params_repository, run_repository
+from repositories import dataset_repository, experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
+from storage.client import CHECKPOINTS_BUCKET
+from storage.filer import delete_prefix
 
 
 def get_all(db: Session, owner_id: str | None = None) -> list[dict]:
@@ -48,6 +47,7 @@ def get(db: Session, owner_id: str | None = None, **filters) -> list[dict]:
     runs = run_repository.get_query(db, created_by=owner_id, **filters)
     return [_serialize_run(run) for run in runs]
 
+
 def get_by_id(db: Session, run_id: int, owner_id: str | None = None) -> dict | None:
     """Retrieve a single run with full details.
 
@@ -63,45 +63,63 @@ def get_by_id(db: Session, run_id: int, owner_id: str | None = None) -> dict | N
     run = run_repository.get_by_id(db, run_id, owner_id=owner_id)
     if run is None:
         return None
-    return _serialize_run_detail(run)
+    return _serialize_run_detail(run, db)
+
+
+def delete(db: Session, run_id: int, owner_id: str | None = None) -> bool:
+    """Delete a run and its S3 checkpoint.
+
+    Attempts to delete the checkpoint from SeaweedFS before removing the
+    DB row. S3 errors are swallowed so a missing or never-uploaded
+    checkpoint does not block the deletion.
+
+    Args:
+        db (Session): SQLAlchemy database session.
+        run_id (int): Primary key of the run to delete.
+        owner_id (str | None): If provided, scopes the deletion to runs
+            owned by this user.
+
+    Returns:
+        bool: True if a run was deleted, False if not found.
+    """
+    run = run_repository.get_by_id(db, run_id, owner_id=owner_id)
+    if run is None:
+        return False
+
+    if run.experiment_params and run.experiment_params.path_to_checkpoint:
+        try:
+            delete_prefix(bucket=CHECKPOINTS_BUCKET, prefix=f"run_{run_id}/")
+        except Exception:
+            pass
+
+    return run_repository.delete(db, run_id)
 
 
 def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
 
-    Loads and parses the class-mapping file, constructs a new ``Run`` and
-    its associated ``ExperimentParams``, and commits both atomically to the
-    database.
-
     Args:
         db (Session): Active SQLAlchemy session.
-        params (TrainParams): Training configuration submitted by the client,
-            including model settings, hyperparameters, and dataset paths.
+        params (TrainParams): Training configuration submitted by the client.
         owner_id (str): Keycloak subject ID of the user creating the run.
-
-    Raises:
-        ResourceNotFoundError: If the class-mapping file does not exist at
-            the path specified in ``params.class_mapping``.
-        InvalidResourceError: If the class-mapping file exists but cannot
-            be parsed as valid JSON.
 
     Returns:
         dict: Serialized run detail including the new run's metadata and
             its persisted experiment parameters.
     """
-    try:
-        with open(params.class_mapping) as f:
-            class_mapping = json.load(f)
-    except FileNotFoundError as e:
-        raise ResourceNotFoundError("ClassMapping", params.class_mapping) from e
-    except json.JSONDecodeError as e:
-        raise InvalidResourceError("ClassMapping", params.class_mapping, reason=str(e)) from e
+    dataset = dataset_repository.get_by_id(db, params.dataset_id)
+    if dataset is None:
+        raise EntityNotFoundError("Dataset", params.dataset_id)
+
+    class_mapping = get_class_mapping_from_s3_dataset(
+        s3_prefix=dataset.s3_prefix, split=params.training_set, bucket="raw-audios"
+    )
 
     run = Run(
         created_by=owner_id,
         name=params.experiment_name,
         description=params.description,
-        task_type=TaskType.train
+        task_type=TaskType.train,
     )
     exp_params = ExperimentParams(
         run=run,
@@ -113,71 +131,56 @@ def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
         lr=params.learning_rate,
         sample_rate=params.sampling_rate,
         segment_duration=params.segment_duration,
-        n_classes=params.num_classes,
+        n_classes=len(class_mapping),
         backbone=params.backbone,
         pretrained_backbone=params.pretrained,
         pooling=params.pooling,
         freeze_backbone=params.freeze_backbone,
         path_to_checkpoint=params.checkpoint,
-        path_to_train=params.training_data,
-        path_to_validation=params.validation_data,
+        dataset_id=params.dataset_id,
+        path_to_train=params.training_set,
+        path_to_validation=params.validation_set,
         device=params.device,
         gpu_index=params.gpu_index,
     )
 
     created_run = run_repository.create_run_with_params(db=db, run=run, exp_params=exp_params)
-    return _serialize_run_detail(created_run)
+    return _serialize_run_detail(created_run, db)
 
 
 def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_id: str):
     """Validate and update run and experiment parameters for evaluation.
 
-    Retrieves the training run referenced in the evaluation request,
-    ensures it exists and has not already been evaluated, updates the
-    run's task type, and sets the test dataset path in the associated
-    experiment parameters. Both updates are committed atomically via a
-    dedicated repository method.
-
     Args:
         db (Session): Active SQLAlchemy session.
-        evaluation_params (EvaluationParams): User-provided evaluation
-            configuration containing the training run name and test data path.
+        evaluation_params (EvaluationParams): User-provided evaluation configuration.
         owner_id (str): Keycloak subject ID of the user requesting evaluation.
-            Used to verify ownership of the referenced training run.
 
     Raises:
-        ReferencedEntityNotFoundError: If the referenced training run
-            does not exist.
-        InvalidStateError: If the experiment has already been evaluated
-            (i.e., ``path_to_test`` is already set).
+        ReferencedEntityNotFoundError: If the referenced training run does not exist
+            or does not belong to the requesting user.
+        InvalidStateError: If the experiment has already been evaluated.
 
     Returns:
-        tuple[int, dict]: The ID of the training run and a dictionary
-            representation of the updated experiment parameters.
+        tuple[int, dict]: The ID of the training run and the updated experiment parameters.
     """
-    # Validate referenced train experiment
-    train_exp = run_repository.get_by_name(db, evaluation_params.train_name)
+    train_exp = run_repository.get_by_id(db, evaluation_params.train_run_id, owner_id=owner_id)
     if train_exp is None:
-        raise ReferencedEntityNotFoundError("Run", evaluation_params.train_name)
-
-    if train_exp.created_by != owner_id:
-        raise UnauthorizedError("You do not own this run")
+        raise ReferencedEntityNotFoundError("Run", evaluation_params.train_run_id)
 
     if train_exp.has_evaluation:
         raise InvalidStateError("Experiment already evaluated")
-    
-    # Update run fields
+
     train_exp.task_type = TaskType.train_evaluation
     train_exp.evaluation_status = EvaluationStatus.pending
     run_repository.update_run(db=db, run=train_exp)
 
-    # Update experiment params
     exp_params = train_exp.experiment_params
-
-    exp_params.path_to_test = evaluation_params.evaluation_data
+    exp_params.path_to_test = evaluation_params.test_set
     experiment_params_repository.update_experiment_params(db=db, exp_params=exp_params)
 
     exp_params_dict = {
+        "dataset_id": exp_params.dataset_id,
         "path_to_checkpoint": exp_params.path_to_checkpoint,
         "path_to_test": exp_params.path_to_test,
         "sample_rate": exp_params.sample_rate,
@@ -193,18 +196,7 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_
 
 
 def _serialize_run(run) -> dict:
-    """Serialize a Run ORM object into a base dictionary representation.
-
-    Extracts only the core identifying fields of the run, without any
-    related entities. Used as the base for ``_serialize_run_detail``.
-
-    Args:
-        run (Run): SQLAlchemy Run ORM object.
-
-    Returns:
-        dict: Dictionary containing the run's id, name, description,
-            task_type, and created_at timestamp.
-    """
+    dataset_id = run.experiment_params.dataset_id if run.experiment_params else None
     return {
         "id": run.id,
         "name": run.name,
@@ -212,28 +204,11 @@ def _serialize_run(run) -> dict:
         "task_type": run.task_type,
         "has_evaluation": run.has_evaluation,
         "created_at": run.created_at,
+        "dataset_id": dataset_id,
     }
 
 
-def _serialize_run_detail(run) -> dict:
-    """Serialize a Run ORM object into a detailed dictionary representation.
-
-    Extends the base run serialization with experiment parameters, per-epoch
-    loss history, and classification report. Experiment parameters are included
-    only if the run has an associated ``ExperimentParams`` row.
-
-    Args:
-        run (Run): SQLAlchemy Run ORM object, with ``losses``,
-            ``experiment_params``, and ``classification_report``
-            relationships loaded.
-
-    Returns:
-        dict: Dictionary containing the run's base fields (id, name,
-            description, task_type, created_at), experiment parameters
-            or ``None`` if not present, a list of loss records keyed by
-            epoch and split type, and the classification report or ``None``
-            if not yet evaluated.
-    """
+def _serialize_run_detail(run, db: Session) -> dict:
     result = {
         **_serialize_run(run),
         "exp_params": None,
@@ -249,6 +224,7 @@ def _serialize_run_detail(run) -> dict:
     }
     if run.experiment_params:
         exp = run.experiment_params
+        dataset = dataset_repository.get_by_id(db, exp.dataset_id)
         result["exp_params"] = {
             "class_mapping": exp.class_mapping,
             "batch_size": exp.batch_size,
@@ -264,6 +240,7 @@ def _serialize_run_detail(run) -> dict:
             "pooling": exp.pooling,
             "freeze_backbone": exp.freeze_backbone,
             "path_to_checkpoint": exp.path_to_checkpoint,
+            "dataset_name": dataset.name if dataset else None,
             "path_to_train": exp.path_to_train,
             "path_to_validation": exp.path_to_validation,
             "path_to_test": exp.path_to_test,

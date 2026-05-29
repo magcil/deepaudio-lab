@@ -1,5 +1,6 @@
-from models.classification_report import ClassificationReport as ClassificationReport
-from models.experiment_params import ExperimentParams as ExperimentParams
-from models.loss import Loss as Loss
-from models.run import Run as Run
-from models.user import User as User
+from models.classification_report import ClassificationReport  # noqa: F401 — registers the model in this process
+from models.dataset import Dataset  # noqa: F401 — registers the model in this process
+from models.experiment_params import ExperimentParams  # noqa: F401 — registers the model in this process
+from models.loss import Loss  # noqa: F401 — registers the model in this process
+from models.run import Run  # noqa: F401 — registers the model in this process
+from models.user import User  # noqa: F401 — registers the model in this process

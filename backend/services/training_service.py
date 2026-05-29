@@ -3,16 +3,20 @@ import logging
 import time
 
 import torch.nn as nn
-from deepaudiox import AudioClassifier, Trainer, audio_classification_dataset_from_dir
+from deepaudiox import Trainer
 from deepaudiox.utils.training_utils import get_device
 from sqlalchemy.orm import Session
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from adapters.callbacks import S3Checkpointer
+from adapters.classifiers import S3AudioClassifier
+from adapters.dataset import S3AudioClassificationDataset
+from adapters.utils import create_file_to_class_mapping_from_s3
 from db.session import SessionLocal
 from models.loss import Loss
 from models.run import TrainingStatus
-from repositories import loss_repository
+from repositories import dataset_repository, loss_repository
 from repositories.run_repository import update_training_status
 from schemas.train_params import TrainParams
 
@@ -73,14 +77,14 @@ class TrainingService:
         trainer = None
         try:
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
-            
+
             device = get_device(
                 device=params.device,
                 device_index=params.gpu_index if params.device == "cuda" else None,
             )
 
             # Load model
-            model = AudioClassifier(
+            model = S3AudioClassifier(
                 num_classes=len(class_mapping),
                 backbone=params.backbone,
                 sample_rate=params.sampling_rate,
@@ -94,21 +98,33 @@ class TrainingService:
             scheduler = ReduceLROnPlateau(optimizer, "min")
             loss_function = nn.CrossEntropyLoss()
 
-            # Load data
-            train_dataset = audio_classification_dataset_from_dir(
-                root_dir=params.training_data,
+            dataset = dataset_repository.get_by_id(db, params.dataset_id)
+            if dataset is None:
+                raise ValueError(f"Dataset {params.dataset_id} not found")
+            s3_prefix = str(dataset.s3_prefix)
+
+            # Create an AudioClassification Dataset reading from S3
+            train_file_to_class_mapping = create_file_to_class_mapping_from_s3(
+                s3_prefix=s3_prefix, split=params.training_set, bucket="raw-audios"
+            )
+            train_dataset = S3AudioClassificationDataset(
+                file_to_class_mapping=train_file_to_class_mapping,
                 sample_rate=params.sampling_rate,
-                segment_duration=params.segment_duration,
                 class_mapping=class_mapping,
+                segment_duration=params.segment_duration,
             )
 
             validation_dataset = None
-            if params.validation_data:
-                validation_dataset = audio_classification_dataset_from_dir(
-                    root_dir=params.validation_data,
+            if params.validation_set:
+                validation_file_to_class_mapping = create_file_to_class_mapping_from_s3(
+                    s3_prefix=s3_prefix, split=params.validation_set, bucket="raw-audios"
+                )
+                # TODO: CHECK if no validationSet is given then the random_split_audio_dataset works as expected with no conflicts for the S3AudioClassificationDataset
+                validation_dataset = S3AudioClassificationDataset(
+                    file_to_class_mapping=validation_file_to_class_mapping,
                     sample_rate=params.sampling_rate,
-                    segment_duration=params.segment_duration,
                     class_mapping=class_mapping,
+                    segment_duration=params.segment_duration,
                 )
 
             # Initialize trainer
@@ -124,10 +140,15 @@ class TrainingService:
                 patience=params.patience,
                 num_workers=params.workers,
                 batch_size=params.batch_size,
+                # TODO: REMOVE CHECKPOINT PATH?
                 path_to_checkpoint=f"{params.checkpoint}.pt",
                 device=params.device,
                 device_index=params.gpu_index,
             )
+
+            checkpointer = S3Checkpointer(run_id=run_id, checkpoint_name=params.checkpoint, logger=self.logger)
+
+            trainer.callbacks[0] = checkpointer
 
             self.logger.info("Starting manual training loop...")
 
@@ -135,7 +156,6 @@ class TrainingService:
             for cb in trainer.callbacks:
                 cb.on_train_start(trainer)
 
-        
             start_time = time.monotonic()
             prev_elapsed = 0.0
             for epoch in range(1, trainer.epochs + 1):
@@ -170,18 +190,14 @@ class TrainingService:
                         elapsed,
                         eta,
                     )
-            # Fire the "on_train_end" lifecycle hook
-            for cb in trainer.callbacks:
-                cb.on_train_end(trainer)
         except Exception:
             self.logger.exception("Training failed for run_id=%s", run_id)
             try:
                 update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.failure)
             except Exception:
                 self.logger.exception("Also failed to mark run_id=%s as failure", run_id)
-            raise                                     
+            raise
         else:
-            # Update training status to success
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.success)
             self.logger.info("Training process complete.")
         finally:

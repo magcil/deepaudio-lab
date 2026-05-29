@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
-from routers import auth, evaluation, run, tasks, training
+from routers import auth, datasets, evaluation, run, tasks, training
 
 # Instantiate api
 app = FastAPI()
@@ -27,6 +27,7 @@ app.include_router(training.router)
 app.include_router(evaluation.router)
 app.include_router(run.router)
 app.include_router(tasks.router)
+app.include_router(datasets.router)
 
 # Check status point
 @app.get("/")

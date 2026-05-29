@@ -13,12 +13,8 @@ dependencies = [
     "sqlalchemy>=2.0.49",
     "uvicorn>=0.42.0",
     "celery[redis]>=5.3",
-    "python-keycloak>=7.1.1",
-    "pydantic-settings>=2.14.1",
-    "python-multipart>=0.0.29",
-    "email-validator>=2.3.0",
-    "pydantic[email]>=2.13.3",
-    "pyjwt[crypto]>=2.13.0",
+    "boto3>=1.43.8",
+    "requests>=2.32",
 ]
 
 [dependency-groups]

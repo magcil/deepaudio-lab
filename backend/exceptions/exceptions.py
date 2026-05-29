@@ -139,3 +139,33 @@ class InvalidStateError(AppError):
                 prevents the requested operation.
         """
         super().__init__(message)
+
+
+class QuotaExceededError(AppError):
+    """Raised when a user's storage quota would be exceeded by an upload.
+
+    Maps to HTTP 413 Request Entity Too Large.
+
+    Attributes:
+        used (int): Bytes already consumed by the user.
+        limit (int): Maximum bytes allowed for the user.
+        requested (int): Bytes the user is attempting to upload.
+    """
+
+    def __init__(self, used: int, limit: int, requested: int):
+        """Initialize a QuotaExceededError.
+
+        Args:
+            used (int): Bytes already consumed by the user.
+            limit (int): Maximum bytes allowed for the user.
+            requested (int): Bytes the user is attempting to upload.
+        """
+        self.used = used
+        self.limit = limit
+        self.requested = requested
+        remaining = limit - used
+        super().__init__(
+            f"Upload of {requested:,} bytes would exceed quota. "
+            f"Used: {used:,} / {limit:,} bytes. "
+            f"Remaining: {remaining:,} bytes."
+        )

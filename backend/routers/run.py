@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from db.session import get_db
 from exceptions.exceptions import EntityNotFoundError
 from models.run import EvaluationStatus, TrainingStatus
-from repositories import run_repository
 from schemas.user_info import UserInfo
 from services import run_service
 from auth.service import get_current_user
@@ -73,7 +72,7 @@ def delete_run(run_id: int, db: Session = Depends(get_db), user: UserInfo = Depe
             the run does not belong to the requesting user.
     """
     owner_id = None if user.is_admin else user.sub
-    deleted = run_repository.delete(db, run_id, owner_id=owner_id)
+    deleted = run_service.delete(db, run_id, owner_id=owner_id)
     if not deleted:
         raise EntityNotFoundError("Run", run_id)
 

@@ -98,10 +98,7 @@ def get_query(db: Session, **filters) -> list[Run]:
             values = value if isinstance(value, list) else [value]
 
             if isinstance(column.type, SQLAlchemyEnum):
-                values = [
-                    _coerce_enum(v, column.type.enum_class, field) if v is not None else None
-                    for v in values
-                ]
+                values = [_coerce_enum(v, column.type.enum_class, field) if v is not None else None for v in values]
 
             col_attr = getattr(Run, field)
             none_values = [v for v in values if v is None]
@@ -111,9 +108,7 @@ def get_query(db: Session, **filters) -> list[Run]:
             if none_values:
                 clauses.append(col_attr.is_(None))
             if real_values:
-                clauses.append(
-                    col_attr.in_(real_values) if len(real_values) > 1 else col_attr == real_values[0]
-                )
+                clauses.append(col_attr.in_(real_values) if len(real_values) > 1 else col_attr == real_values[0])
 
             conditions.append(or_(*clauses))
 
@@ -123,6 +118,7 @@ def get_query(db: Session, **filters) -> list[Run]:
         raise
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to fetch runs with dynamic filters") from e
+
 
 def delete(db: Session, id: int, owner_id: str | None = None) -> bool:
     """Delete a run by its primary key.
@@ -254,7 +250,8 @@ def update_training_status(db: Session, run_id: int, training_status: str) -> No
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError(f"Failed to update training_status for run '{run_id}'") from e
-    
+
+
 def update_evaluation_status(db: Session, run_id: int, evaluation_status: str) -> None:
     """Update the training_status to an existing run.
 
@@ -274,6 +271,7 @@ def update_evaluation_status(db: Session, run_id: int, evaluation_status: str) -
     except SQLAlchemyError as e:
         db.rollback()
         raise RepositoryError(f"Failed to update evaluation_status for run '{run_id}'") from e
+
 
 def get_by_task_id(db: Session, task_id: str) -> Run | None:
     try:
