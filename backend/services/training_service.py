@@ -54,7 +54,9 @@ class TrainingService:
 
         return saved_loss
 
-    def perform_training(self, params: TrainParams, class_mapping: dict, run_id: int, progress_callback=None):
+    def perform_training(
+        self, params: TrainParams, class_mapping: dict, run_id: int, user_id: str, progress_callback=None
+    ):
         """Execute the full training loop and persist per-epoch losses.
 
         Builds the model, optimizer, scheduler, datasets, and
@@ -146,7 +148,9 @@ class TrainingService:
                 device_index=params.gpu_index,
             )
 
-            checkpointer = S3Checkpointer(run_id=run_id, checkpoint_name=params.checkpoint, logger=self.logger)
+            checkpointer = S3Checkpointer(
+                run_id=run_id, checkpoint_name=params.checkpoint, user_id=user_id, logger=self.logger
+            )
 
             trainer.callbacks[0] = checkpointer
 

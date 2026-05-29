@@ -6,7 +6,7 @@
   "rememberMe": true,
   "verifyEmail": false,
   "resetPasswordAllowed": true,
-  "accessTokenLifespan": 300,
+  "accessTokenLifespan": 1200,
   "ssoSessionMaxLifespan": 36000,
   "roles": {
     "realm": [

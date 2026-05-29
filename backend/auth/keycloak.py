@@ -1,6 +1,5 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
 from keycloak import KeycloakAdmin, KeycloakOpenID, KeycloakOpenIDConnection
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class KeycloakSettings(BaseSettings):
@@ -10,7 +9,8 @@ class KeycloakSettings(BaseSettings):
     keycloak_realm: str
     keycloak_client_id: str
     keycloak_client_secret: str
-    
+
+
 settings = KeycloakSettings()  # type: ignore[call-arg]
 
 keycloak_openid = KeycloakOpenID(

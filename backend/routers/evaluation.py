@@ -8,12 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from auth.service import get_current_user, require_regular
 from db.session import get_db
 from repositories import run_repository
 from schemas.evaluation_params import EvaluationOptionsResponse, EvaluationParams
 from schemas.user_info import UserInfo
 from services import run_service
-from auth.service import get_current_user, require_regular
 from worker.app import celery_app
 from worker.evaluation import run_evaluation
 
@@ -62,7 +62,7 @@ def evaluate(params: EvaluationParams, db: Session = Depends(get_db), user: User
         InvalidStateError: If the experiment has already been evaluated.
     """
     run_id, exp_params = run_service.register_evaluation(db, params, owner_id=user.sub)
-    task = run_evaluation.delay(run_id, exp_params)
+    task = run_evaluation.delay(run_id, exp_params, user.sub)
     run_repository.update_task_id(db, run_id, task.id)
     return {"task_id": task.id}
 

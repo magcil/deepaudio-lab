@@ -8,5 +8,6 @@ class TokenResponse(BaseModel):
         access_token (str): JWT access token issued by Keycloak.
         token_type (str): Token type, always `bearer`.
     """
+
     access_token: str
     token_type: str = "bearer"

@@ -28,12 +28,7 @@ def delete_by_id(db: Session, id: str) -> None:
 
 
 def upsert(
-    db: Session, 
-    id: str, 
-    username: str, 
-    email: str | None, 
-    first_name: str | None, 
-    last_name: str | None
+    db: Session, id: str, username: str, email: str | None, first_name: str | None, last_name: str | None
 ) -> None:
     """Insert user if not exists, update their fields if anything changed.
 

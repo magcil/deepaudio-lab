@@ -11,6 +11,7 @@ class SignupRequest(BaseModel):
         first_name (str): User's first name.
         last_name (str): User's last name.
     """
+
     username: str
     email: EmailStr
     password: str

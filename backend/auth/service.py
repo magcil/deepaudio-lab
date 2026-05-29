@@ -4,8 +4,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from keycloak.exceptions import KeycloakAuthenticationError, KeycloakPostError
 from sqlalchemy.orm import Session
 
-from db.session import get_db
 from auth.keycloak import keycloak_admin, keycloak_openid
+from db.session import get_db
 from repositories import user_repository
 from schemas.signup_request import SignupRequest
 from schemas.user_info import UserInfo
@@ -39,21 +39,12 @@ def register_user(db: Session, data: SignupRequest) -> dict:
                 "firstName": data.first_name,
                 "lastName": data.last_name,
                 "enabled": True,
-                "credentials": [
-                    {
-                        "type": "password",
-                        "value": data.password,
-                        "temporary": False
-                    }
-                ],
+                "credentials": [{"type": "password", "value": data.password, "temporary": False}],
             },
             exist_ok=False,
         )
 
-        keycloak_admin.assign_realm_roles(
-            user_id,
-            [keycloak_admin.get_realm_role("regular")]
-        )
+        keycloak_admin.assign_realm_roles(user_id, [keycloak_admin.get_realm_role("regular")])
 
         user_repository.upsert(
             db,
@@ -92,10 +83,7 @@ def delete_user(db: Session, username: str) -> None:
     """
     user_id = keycloak_admin.get_user_id(username)
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User '{username}' not found"
-        ) from None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User '{username}' not found") from None
     keycloak_admin.delete_user(user_id)
     user_repository.delete_by_id(db, user_id)
 
@@ -136,11 +124,7 @@ def _get_public_key() -> str:
     Returns:
         str: The realm's public key as a PEM-encoded string.
     """
-    return (
-        "-----BEGIN PUBLIC KEY-----\n"
-        + keycloak_openid.public_key()
-        + "\n-----END PUBLIC KEY-----"
-    )
+    return "-----BEGIN PUBLIC KEY-----\n" + keycloak_openid.public_key() + "\n-----END PUBLIC KEY-----"
 
 
 def verify_token(token: str) -> UserInfo:
@@ -233,10 +217,7 @@ def require_admin(user: UserInfo = Depends(get_current_user)) -> UserInfo:
         UserInfo: The authenticated admin user.
     """
     if not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        ) from None
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required") from None
     return user
 
 
@@ -254,7 +235,6 @@ def require_regular(user: UserInfo = Depends(get_current_user)) -> UserInfo:
     """
     if not user.is_regular:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only regular users can perform this action"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only regular users can perform this action"
         ) from None
     return user

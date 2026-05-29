@@ -47,7 +47,7 @@ class EvaluationService:
         self.state = EvaluationState()
         self.logger = logging.getLogger(__name__)
 
-    def perform_evaluation(self, run_id: int, exp_params: dict, progress_callback=None):
+    def perform_evaluation(self, run_id: int, exp_params: dict, user_id: str, progress_callback=None):
         """Execute the evaluation pipeline and return the classification report.
 
         Loads the model checkpoint, prepares the evaluation dataset,
@@ -75,7 +75,6 @@ class EvaluationService:
 
             update_evaluation_status(db=db, run_id=run_id, evaluation_status=EvaluationStatus.progress)
 
-            user_id = "default"
             model = S3AudioClassifier.from_checkpoint(
                 path=f"run_{run_id}/{user_id}/{exp_params.get('path_to_checkpoint')}.pt"
             )

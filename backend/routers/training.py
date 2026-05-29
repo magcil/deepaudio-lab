@@ -9,12 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from auth.service import get_current_user, require_regular
 from db.session import get_db
 from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
 from schemas.user_info import UserInfo
 from services import run_service
-from auth.service import get_current_user, require_regular
 from worker.app import celery_app
 from worker.training import run_training
 
@@ -42,7 +42,7 @@ def train(params: TrainParams, db: Session = Depends(get_db), user: UserInfo = D
     run_detail = run_service.register_train(db, params, owner_id=user.sub)
     run_id = run_detail["id"]
     class_mapping = run_detail["exp_params"]["class_mapping"]
-    task = run_training.delay(params.model_dump(), class_mapping, run_id)
+    task = run_training.delay(params.model_dump(), class_mapping, run_id, user.sub)
     run_repository.update_task_id(db, run_id, task.id)
     return {"task_id": task.id}
 

@@ -25,6 +25,7 @@ class User(Base):
         runs (list[Run]): All runs created by this user. Deleted automatically
             when the user is removed (cascade delete-orphan).
     """
+
     __tablename__ = "user"
 
     id = Column(String, primary_key=True)  # Keycloak sub
@@ -35,3 +36,4 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     runs = relationship("Run", back_populates="creator", cascade="all, delete-orphan", passive_deletes=True)
+    datasets = relationship("Dataset", back_populates="owner", cascade="all, delete-orphan", passive_deletes=True)

@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, computed_field
 
 
@@ -17,6 +16,7 @@ class UserInfo(BaseModel):
         is_admin (bool): True if the user has the `admin` realm role.
         is_regular (bool): True if the user has the `regular` realm role.
     """
+
     sub: str
     username: str
     email: str | None = None

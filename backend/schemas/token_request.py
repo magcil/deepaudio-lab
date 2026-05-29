@@ -8,5 +8,6 @@ class TokenRequest(BaseModel):
         username (str): The user's Keycloak username.
         password (str): The user's password.
     """
+
     username: str
     password: str

@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from auth.service import get_current_user
 from db.session import get_db
 from repositories import run_repository
 from schemas.user_info import UserInfo
-from auth.service import get_current_user
 from worker.app import celery_app
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -29,6 +29,7 @@ class ActiveTask(BaseModel):
         state (str): Current Celery task state (e.g. PENDING, STARTED, SUCCESS).
         info (dict | None): Additional task progress metadata, if available.
     """
+
     task_id: str
     run_id: int
     experiment_name: str

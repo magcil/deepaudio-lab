@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from auth.service import get_current_user
 from db.session import get_db
 from schemas.dataset_params import (
     ConfirmUploadRequest,
@@ -8,6 +9,7 @@ from schemas.dataset_params import (
     DatasetUploadRequest,
     DatasetUploadResponse,
 )
+from schemas.user_info import UserInfo
 from services import dataset_service
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -18,13 +20,16 @@ router = APIRouter(prefix="/datasets", tags=["Datasets"])
     status_code=status.HTTP_201_CREATED,
     response_model=DatasetUploadResponse,
 )
-def request_upload(request: DatasetUploadRequest, db: Session = Depends(get_db)):
+def request_upload(
+    request: DatasetUploadRequest, db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)
+):
     """Check quota, register a new dataset, and return presigned upload URLs.
 
     Args:
-        request (DatasetUploadRequest): Upload request containing the user ID,
-            dataset name, optional description, file paths, and total byte count.
+        request (DatasetUploadRequest): Upload request containing the dataset name,
+            optional description, file paths, and total byte count.
         db (Session): SQLAlchemy session injected by FastAPI.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
 
     Raises:
         QuotaExceededError: If the upload would exceed the user's storage limit (→ 413).
@@ -35,7 +40,7 @@ def request_upload(request: DatasetUploadRequest, db: Session = Depends(get_db))
     """
     return dataset_service.request_upload(
         db=db,
-        user_id=request.user_id,
+        user_id=user.sub,
         dataset_name=request.dataset_name,
         description=request.description,
         paths=request.paths,
@@ -52,10 +57,9 @@ def confirm_upload(
     dataset_id: int,
     request: ConfirmUploadRequest,
     db: Session = Depends(get_db),
+    _: UserInfo = Depends(get_current_user),
 ):
     """Mark a dataset upload as complete and record the final size and file count.
-
-    Called by the frontend after all presigned PUT requests succeed.
 
     Args:
         dataset_id (int): ID of the dataset to confirm.
@@ -81,11 +85,8 @@ def confirm_upload(
     status_code=status.HTTP_200_OK,
     response_model=DatasetResponse,
 )
-def report_error(dataset_id: int, db: Session = Depends(get_db)):
+def report_error(dataset_id: int, db: Session = Depends(get_db), _: UserInfo = Depends(get_current_user)):
     """Mark a dataset upload as failed.
-
-    Called by the frontend when one or more presigned uploads fail and
-    the upload cannot be recovered.
 
     Args:
         dataset_id (int): ID of the dataset to mark as failed.
@@ -105,17 +106,17 @@ def report_error(dataset_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     response_model=list[DatasetResponse],
 )
-def get_datasets(user_id: str, db: Session = Depends(get_db)):
-    """Retrieve all datasets owned by a user.
+def get_datasets(db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Retrieve all datasets owned by the authenticated user.
 
     Args:
-        user_id (str): Query parameter identifying the owner.
         db (Session): SQLAlchemy session injected by FastAPI.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
 
     Returns:
-        list[DatasetResponse]: All dataset records for the given user.
+        list[DatasetResponse]: All dataset records for the authenticated user.
     """
-    return dataset_service.get_all_for_user(db=db, user_id=user_id)
+    return dataset_service.get_all_for_user(db=db, user_id=user.sub)
 
 
 @router.get(
@@ -123,7 +124,7 @@ def get_datasets(user_id: str, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     response_model=list[str],
 )
-def get_splits(dataset_id: int, db: Session = Depends(get_db)):
+def get_splits(dataset_id: int, db: Session = Depends(get_db), _: UserInfo = Depends(get_current_user)):
     """List available split directories stored under a dataset's S3 prefix.
 
     Args:
@@ -141,7 +142,7 @@ def get_splits(dataset_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_dataset(dataset_id: int, db: Session = Depends(get_db)):
+def delete_dataset(dataset_id: int, db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
     """Delete a dataset and all its files from storage.
 
     Args:
