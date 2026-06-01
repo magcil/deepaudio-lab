@@ -304,6 +304,75 @@ def get_with_task_ids(db: Session, within_hours: int = 24, owner_id: str | None 
         raise RepositoryError("Failed to fetch runs with task IDs") from e
 
 
+def update_deploy_task_id(db: Session, run_id: int, deploy_task_id: str) -> None:
+    """Attach a Celery deployment task ID to an existing run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        deploy_task_id (str): Celery task UUID returned by run_deployment.delay().
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.deploy_task_id = deploy_task_id
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update deploy_task_id for run '{run_id}'") from e
+
+
+def get_with_deploy_task_ids(db: Session, owner_id: str | None = None) -> list[Run]:
+    """Retrieve all runs that have an active deployment task ID, with no time window.
+
+    Used by the activity monitor to show deployment progress regardless of
+    when the run was originally created.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        owner_id (str | None): Filter to a specific user; None returns all.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while querying.
+
+    Returns:
+        list[Run]: Runs with a deploy_task_id set, newest first.
+    """
+    try:
+        query = db.query(Run).filter(Run.deploy_task_id.isnot(None))
+        if owner_id is not None:
+            query = query.filter(Run.created_by == owner_id)
+        return query.order_by(Run.created_at.desc()).all()
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch runs with deploy task IDs") from e
+
+
+def update_deploy_fields(db: Session, run_id: int, deploy_name: str, deploy_artifact_key: str) -> None:
+    """Persist the deploy bundle name and S3 artifact key on a run.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to update.
+        deploy_name (str): User-provided name for the bundle.
+        deploy_artifact_key (str): S3 key where the zip was uploaded.
+
+    Raises:
+        RepositoryError: SQLAlchemy error while updating.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is not None:
+            run.deploy_name = deploy_name
+            run.deploy_artifact_key = deploy_artifact_key
+            db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to update deploy fields for run '{run_id}'") from e
+
+
 def _coerce_enum(value: str, enum_class, field: str):
     """Coerce a string to an enum member by name or value.
 

@@ -87,6 +87,9 @@ class Run(Base):
     task_id = Column(String, nullable=True, index=True)
     has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    deploy_name = Column(String, nullable=True)
+    deploy_artifact_key = Column(String, nullable=True)
+    deploy_task_id = Column(String, nullable=True, index=True)
     training_status: Mapped[TrainingStatus] = mapped_column(
         Enum(TrainingStatus, native_enum=False), nullable=False, default=TrainingStatus.pending
     )

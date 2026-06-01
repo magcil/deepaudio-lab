@@ -1,147 +1,164 @@
-import os
-import shlex
-import shutil
-import subprocess
-import tempfile
-from dataclasses import dataclass
+import io
+import json
+import zipfile
 from pathlib import Path
 
-from exceptions.exceptions import InvalidResourceError, ResourceNotFoundError
+from sqlalchemy.orm import Session
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEPLOYMENT_DIR = REPO_ROOT / "deployment"
-DEPLOYMENT_DOCKERFILE = DEPLOYMENT_DIR / "Dockerfile"
-IMAGE_TAG = "deepaudio-inference:latest"
-ARCHIVE_NAME = "deepaudio_inference.tar"
-DOCKER_COMMAND = shlex.split(os.getenv("DEPLOYMENT_DOCKER_COMMAND", "docker"))
+from exceptions.exceptions import EntityNotFoundError, InvalidStateError
+from models.run import TrainingStatus
+from repositories import run_repository
+from storage.client import ARTIFACTS_BUCKET, CHECKPOINTS_BUCKET, s3_client
 
+DEPLOYMENT_DIR = Path(__file__).resolve().parents[2] / "deployment"
 
-@dataclass
-class DeploymentArchive:
-    archive_path: Path
-    temp_dir: Path
-    image_tag: str = IMAGE_TAG
-    download_name: str = ARCHIVE_NAME
-
-    def cleanup(self) -> None:
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-        try:
-            subprocess.run(
-                [*DOCKER_COMMAND, "image", "rm", "-f", self.image_tag],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-        except FileNotFoundError:
-            pass
+# Files inside deployment/ included verbatim in every bundle (relative to DEPLOYMENT_DIR).
+_APP_FILES = [
+    "Dockerfile",
+    "requirements.txt",
+    "README.md",
+    "main.py",
+    "config.py",
+    "__init__.py",
+    "routers/__init__.py",
+    "routers/inference.py",
+    "services/inference_service.py",
+]
 
 
-def build_deployment_archive(
-    checkpoint_path: str,
-    class_mapping_path: str,
-    segment_duration: float,
+def build_bundle(db: Session, run_id: int, user_id: str, name: str, progress_callback=None) -> None:
+    """Fetch the trained checkpoint from SeaweedFS, assemble a self-contained
+    inference zip bundle, upload it to the artifacts bucket, and persist the
+    artifact key on the Run record.
+
+    The zip layout mirrors the ``deployment/`` package so the user can
+    unzip and run ``docker build .`` immediately::
+
+        <name>.zip
+        ├── Dockerfile
+        ├── requirements.txt
+        ├── README.md
+        ├── main.py
+        ├── config.py
+        ├── __init__.py
+        ├── routers/
+        │   ├── __init__.py
+        │   └── inference.py
+        ├── services/
+        │   ├── __init__.py
+        │   └── inference_service.py
+        └── pretrained_models/
+            ├── checkpoint.pt
+            └── class_mapping.json
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run to deploy.
+        user_id (str): Keycloak sub of the run owner.
+        name (str): User-provided bundle name stored in deploy_name.
+
+    Raises:
+        EntityNotFoundError: Run not found or not owned by user_id.
+        InvalidStateError: Training has not completed successfully.
+    """
+    def _progress(step: str, pct: int) -> None:
+        if progress_callback is not None:
+            progress_callback(step, pct)
+
+    run = run_repository.get_by_id(db, run_id, owner_id=user_id)
+    if run is None:
+        raise EntityNotFoundError("Run", run_id)
+    if run.training_status != TrainingStatus.success:
+        raise InvalidStateError("Cannot deploy a run that has not completed training successfully.")
+
+    exp_params = run.experiment_params
+    params: dict = exp_params.params
+    checkpoint_name: str = params["checkpoint"]
+    sample_rate: int = params.get("sampling_rate", 32000)
+    segment_duration: float = params.get("segment_duration", 3.0)
+    class_mapping: dict = params["class_mapping"]
+
+    _progress("Downloading checkpoint", 20)
+    checkpoint_bytes = s3_client.get_object(
+        Bucket=CHECKPOINTS_BUCKET,
+        Key=f"run_{run_id}/{user_id}/{checkpoint_name}.pt",
+    )["Body"].read()
+
+    _progress("Building bundle", 60)
+    zip_buf = _build_zip(
+        checkpoint_bytes=checkpoint_bytes,
+        class_mapping=class_mapping,
+        sample_rate=sample_rate,
+        segment_duration=segment_duration,
+    )
+
+    _progress("Uploading bundle", 85)
+    artifact_key = f"run_{run_id}/{user_id}/bundle.zip"
+    s3_client.put_object(
+        Bucket=ARTIFACTS_BUCKET,
+        Key=artifact_key,
+        Body=zip_buf.getvalue(),
+        ContentType="application/zip",
+    )
+
+    run_repository.update_deploy_fields(
+        db, run_id=run_id, deploy_name=name, deploy_artifact_key=artifact_key
+    )
+
+
+def generate_download_url(db: Session, run_id: int, user_id: str) -> str:
+    """Generate a short-lived presigned GET URL for an existing deployment bundle.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        run_id (int): Primary key of the run.
+        user_id (str): Keycloak sub of the run owner.
+
+    Raises:
+        EntityNotFoundError: Run not found or not owned by user_id.
+        InvalidStateError: No bundle has been built for this run yet.
+
+    Returns:
+        str: Presigned URL valid for 5 minutes.
+    """
+    run = run_repository.get_by_id(db, run_id, owner_id=user_id)
+    if run is None:
+        raise EntityNotFoundError("Run", run_id)
+    if not run.deploy_artifact_key:
+        raise InvalidStateError("No deployment bundle has been built for this run.")
+
+    return s3_client.generate_presigned_url(
+        "get_object",
+        Params={
+            "Bucket": ARTIFACTS_BUCKET,
+            "Key": run.deploy_artifact_key,
+            "ResponseContentDisposition": f'attachment; filename="{run.deploy_name}.zip"',
+        },
+        ExpiresIn=300,
+    )
+
+
+def _build_zip(
+    checkpoint_bytes: bytes,
+    class_mapping: dict,
     sample_rate: int,
-) -> DeploymentArchive:
-    checkpoint = _validate_file_path(checkpoint_path, "checkpoint")
-    class_mapping = _validate_file_path(class_mapping_path, "class mapping")
+    segment_duration: float,
+) -> io.BytesIO:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for rel in _APP_FILES:
+            src = DEPLOYMENT_DIR / rel
+            if src.is_file():
+                zf.write(src, rel)
 
-    temp_dir = Path(tempfile.mkdtemp(prefix="deepaudio-deploy-"))
+        zf.writestr("services/__init__.py", "")
 
-    try:
-        _copy_build_context(
-            temp_dir=temp_dir,
-            checkpoint_path=checkpoint,
-            class_mapping_path=class_mapping,
+        zf.writestr("pretrained_models/checkpoint.pt", checkpoint_bytes)
+        zf.writestr(
+            "pretrained_models/class_mapping.json",
+            json.dumps(class_mapping, indent=2),
         )
-        _build_image(
-            build_context=temp_dir,
-            segment_duration=segment_duration,
-            sample_rate=sample_rate,
-        )
+        zf.writestr(".env", f"SAMPLE_RATE={sample_rate}\nSEGMENT_DURATION={segment_duration}\n")
 
-        archive_path = temp_dir / ARCHIVE_NAME
-        _save_image_archive(archive_path)
-        return DeploymentArchive(archive_path=archive_path, temp_dir=temp_dir)
-    except Exception:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        raise
-
-
-def _validate_file_path(path_str: str, resource_type: str) -> Path:
-    path = Path(path_str)
-    if not path.is_absolute():
-        raise InvalidResourceError(resource_type, path_str, "path must be absolute")
-
-    if not path.is_file():
-        raise ResourceNotFoundError(resource_type, path_str)
-
-    return path
-
-
-def _copy_build_context(
-    temp_dir: Path,
-    checkpoint_path: Path,
-    class_mapping_path: Path,
-) -> None:
-    if not DEPLOYMENT_DOCKERFILE.is_file():
-        raise ResourceNotFoundError("deployment Dockerfile", str(DEPLOYMENT_DOCKERFILE))
-
-    build_deployment_dir = temp_dir / "deployment"
-
-    shutil.copytree(
-        DEPLOYMENT_DIR,
-        build_deployment_dir,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-    )
-
-    pretrained_dir = build_deployment_dir / "pretrained_models"
-    pretrained_dir.mkdir(parents=True, exist_ok=True)
-
-    shutil.copy2(checkpoint_path, pretrained_dir / "checkpoint.pt")
-    shutil.copy2(class_mapping_path, pretrained_dir / "class_mapping.json")
-
-def _build_image(build_context: Path, segment_duration: float, sample_rate: int) -> None:
-    _run_docker_command(
-        [
-            *DOCKER_COMMAND,
-            "build",
-            "-t",
-            IMAGE_TAG,
-            "-f",
-            "deployment/Dockerfile",
-            "--build-arg",
-            f"SAMPLE_RATE={sample_rate}",
-            "--build-arg",
-            f"SEGMENT_DURATION={segment_duration}",
-            ".",
-        ],
-        cwd=build_context,
-        action="build image",
-    )
-
-
-def _save_image_archive(archive_path: Path) -> None:
-    _run_docker_command(
-        [*DOCKER_COMMAND, "save", "-o", str(archive_path), IMAGE_TAG],
-        cwd=archive_path.parent,
-        action="save image archive",
-    )
-
-
-def _run_docker_command(command: list[str], cwd: Path, action: str) -> None:
-    try:
-        subprocess.run(
-            command,
-            cwd=cwd,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        raise RuntimeError("Docker is not installed or is not available on PATH") from exc
-    except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr.strip()
-        stdout = exc.stdout.strip()
-        details = stderr or stdout or "unknown Docker error"
-        raise RuntimeError(f"Failed to {action}: {details}") from exc
+    buf.seek(0)
+    return buf
