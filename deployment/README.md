@@ -28,7 +28,7 @@ are faster due to Docker layer caching).
 ## 3 — Run the inference server
 
 ```bash
-docker run -p 8000:8000 deepaudio-inference
+docker run -d -p 8000:8000 deepaudio-inference
 ```
 
 The server starts on `http://localhost:8000`. Verify it is healthy:
