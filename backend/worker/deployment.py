@@ -23,6 +23,7 @@ def run_deployment(self, run_id: int, user_id: str, name: str):
         user_id (str): Keycloak sub of the run owner.
         name (str): User-provided bundle name.
     """
+
     def progress_callback(step: str, progress: int) -> None:
         self.update_state(state="PROGRESS", meta={"step": step, "progress": progress})
 

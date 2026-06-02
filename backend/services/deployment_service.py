@@ -61,6 +61,7 @@ def build_bundle(db: Session, run_id: int, user_id: str, name: str, progress_cal
         EntityNotFoundError: Run not found or not owned by user_id.
         InvalidStateError: Training has not completed successfully.
     """
+
     def _progress(step: str, pct: int) -> None:
         if progress_callback is not None:
             progress_callback(step, pct)
@@ -100,9 +101,7 @@ def build_bundle(db: Session, run_id: int, user_id: str, name: str, progress_cal
         ContentType="application/zip",
     )
 
-    run_repository.update_deploy_fields(
-        db, run_id=run_id, deploy_name=name, deploy_artifact_key=artifact_key
-    )
+    run_repository.update_deploy_fields(db, run_id=run_id, deploy_name=name, deploy_artifact_key=artifact_key)
 
 
 def generate_download_url(db: Session, run_id: int, user_id: str) -> str:
