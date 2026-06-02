@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import zipfile
 from pathlib import Path
 
@@ -73,6 +74,7 @@ def build_bundle(db: Session, run_id: int, user_id: str, name: str, progress_cal
         raise InvalidStateError("Cannot deploy a run that has not completed training successfully.")
 
     exp_params = run.experiment_params
+    checkpoint_filename = f"{Path(exp_params.path_to_checkpoint).name}.pt"
     checkpoint_key = f"run_{run_id}/{user_id}/{exp_params.path_to_checkpoint}.pt"
     sample_rate: int = exp_params.sample_rate
     segment_duration: float = exp_params.segment_duration if exp_params.segment_duration is not None else 3.0
@@ -90,10 +92,12 @@ def build_bundle(db: Session, run_id: int, user_id: str, name: str, progress_cal
         class_mapping=class_mapping,
         sample_rate=sample_rate,
         segment_duration=segment_duration,
+        checkpoint_filename=checkpoint_filename,
     )
 
     _progress("Uploading bundle", 85)
-    artifact_key = f"run_{run_id}/{user_id}/bundle.zip"
+    safe_name = re.sub(r"[^\w\-.]", "_", name)
+    artifact_key = f"run_{run_id}/{user_id}/{safe_name}.zip"
     s3_client.put_object(
         Bucket=ARTIFACTS_BUCKET,
         Key=artifact_key,
@@ -140,6 +144,7 @@ def _build_zip(
     class_mapping: dict,
     sample_rate: int,
     segment_duration: float,
+    checkpoint_filename: str,
 ) -> io.BytesIO:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -150,12 +155,15 @@ def _build_zip(
 
         zf.writestr("services/__init__.py", "")
 
-        zf.writestr("pretrained_models/checkpoint.pt", checkpoint_bytes)
+        zf.writestr(f"pretrained_models/{checkpoint_filename}", checkpoint_bytes)
         zf.writestr(
             "pretrained_models/class_mapping.json",
             json.dumps(class_mapping, indent=2),
         )
-        zf.writestr(".env", f"SAMPLE_RATE={sample_rate}\nSEGMENT_DURATION={segment_duration}\n")
+        zf.writestr(
+            ".env",
+            f"SAMPLE_RATE={sample_rate}\nSEGMENT_DURATION={segment_duration}\nCHECKPOINT_FILENAME={checkpoint_filename}\n",
+        )
 
     buf.seek(0)
     return buf

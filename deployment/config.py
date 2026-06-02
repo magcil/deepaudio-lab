@@ -5,10 +5,11 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
-CHECKPOINT_PATH = BASE_DIR / "pretrained_models" / "checkpoint.pt"
-CLASS_MAPPING_PATH = BASE_DIR / "pretrained_models" / "class_mapping.json"
 
 load_dotenv(ENV_PATH)
+
+CHECKPOINT_PATH = BASE_DIR / "pretrained_models" / os.getenv("CHECKPOINT_FILENAME", "checkpoint.pt")
+CLASS_MAPPING_PATH = BASE_DIR / "pretrained_models" / "class_mapping.json"
 
 
 def get_float_env(name: str, default: float) -> float:

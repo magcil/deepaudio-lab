@@ -26,7 +26,6 @@ async def inference(
     model=Depends(get_model),
     path: UploadFile = File(...),
     segment_duration: float = Form(DEFAULT_SEGMENT_DURATION),
-    sample_rate: int = Form(DEFAULT_SAMPLE_RATE),
 ) -> Dict[str, Any]:
     suffix = Path(path.filename or "").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
@@ -62,7 +61,7 @@ async def inference(
             model=model,
             segment_duration=segment_duration,
             audio_waveform=audio_waveform,
-            sample_rate=sample_rate,
+            sample_rate=DEFAULT_SAMPLE_RATE,
         )
 
         return {"result": result}
