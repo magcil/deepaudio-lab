@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getRuns, deleteRun } from '../services/runService'
 import type { Run } from '../services/runService'
+import { downloadBundle } from '../services/deploymentService'
 import './Homepage.css'
 
 interface Props {
@@ -10,10 +11,21 @@ interface Props {
 export default function Home({ onSelectExperiment }: Props) {
   const [runs, setRuns] = useState<Run[]>([])
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   useEffect(() => {
     getRuns().then(setRuns)
   }, [])
+
+  async function handleDownload(e: React.MouseEvent, id: number) {
+    e.stopPropagation()
+    setDownloadingId(id)
+    try {
+      await downloadBundle(id)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   async function handleDelete(e: React.MouseEvent, id: number) {
     e.stopPropagation()
@@ -65,6 +77,22 @@ export default function Home({ onSelectExperiment }: Props) {
               <div className="experiment-card__pills">
                 <span className="pill pill--training">Training</span>
                 {run.has_evaluation && <span className="pill pill--evaluation">Evaluated</span>}
+                {run.deploy_artifact_key && (
+                  <button
+                    className="experiment-card__download"
+                    title={`Download bundle: ${run.deploy_name ?? 'bundle'}`}
+                    onClick={(e) => handleDownload(e, run.id)}
+                    disabled={downloadingId === run.id}
+                  >
+                    {downloadingId === run.id ? '…' : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           ))}

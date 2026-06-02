@@ -6,7 +6,7 @@ celery_app = Celery(
     "deepaudio",
     broker="redis://localhost:6379/0",
     backend="redis://localhost:6379/0",
-    include=["worker.training", "worker.evaluation"],
+    include=["worker.training", "worker.evaluation", "worker.deployment"],
 )
 
 celery_app.conf.update(

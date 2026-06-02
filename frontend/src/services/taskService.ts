@@ -4,7 +4,7 @@ export interface ActiveTask {
   task_id: string;
   run_id: number;
   experiment_name: string;
-  task_type: 'train' | 'train_evaluation';
+  task_type: 'train' | 'train_evaluation' | 'deployment';
   created_at: string;
   state: 'PENDING' | 'STARTED' | 'PROGRESS' | 'SUCCESS' | 'FAILURE' | 'REVOKED';
   info: Record<string, unknown> | null;

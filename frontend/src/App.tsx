@@ -7,9 +7,10 @@ import Evaluation from './pages/Evaluation'
 import ExperimentDetail from './pages/ExperimentDetail'
 import ActivityMonitor from './pages/ActivityMonitor'
 import Datasets from './pages/Datasets'
+import Deployment from './pages/Deployment'
 import keycloak from './auth/keycloak'
 
-type Page = 'homepage' | 'training' | 'evaluation' | 'experiment' | 'activity-monitor' | 'datasets'
+type Page = 'homepage' | 'training' | 'evaluation' | 'experiment' | 'activity-monitor' | 'datasets' | 'deployment'
 
 function App() {
   const [activePage, setActivePage] = useState<Page>('homepage')
@@ -31,6 +32,7 @@ function App() {
       {activePage === 'experiment' && <ExperimentDetail id={selectedExperimentId!} onBack={() => setActivePage('homepage')} />}
       {activePage === 'activity-monitor' && <ActivityMonitor />}
       {activePage === 'datasets' && <Datasets />}
+      {activePage === 'deployment' && <Deployment />}
       <div className="user-bar">
         {username && <span className="user-bar__name">{username}</span>}
         <button

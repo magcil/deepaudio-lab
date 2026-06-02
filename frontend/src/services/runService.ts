@@ -17,6 +17,9 @@ export interface Run {
   created_at: string;
   /** Whether evaluation has been executed for this run. */
   has_evaluation: boolean;
+  training_status: string;
+  deploy_name: string | null;
+  deploy_artifact_key: string | null;
 }
 
 /** Per-epoch loss value recorded during training. */

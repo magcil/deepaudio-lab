@@ -2,7 +2,7 @@ import json
 
 import numpy as np
 
-from deployment.config import CLASS_MAPPING_PATH
+from ..config import CLASS_MAPPING_PATH
 
 
 def inference_on_wav(

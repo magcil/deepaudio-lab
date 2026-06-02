@@ -4,8 +4,8 @@ from typing import Any, Dict
 import soundfile as sf
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from deployment.config import get_float_env, get_int_env
-from deployment.services.inference_service import inference_on_wav
+from ..config import get_float_env, get_int_env
+from ..services.inference_service import inference_on_wav
 
 router = APIRouter(prefix="/inference", tags=["Inference"])
 

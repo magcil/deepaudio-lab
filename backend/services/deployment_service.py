@@ -72,16 +72,15 @@ def build_bundle(db: Session, run_id: int, user_id: str, name: str, progress_cal
         raise InvalidStateError("Cannot deploy a run that has not completed training successfully.")
 
     exp_params = run.experiment_params
-    params: dict = exp_params.params
-    checkpoint_name: str = params["checkpoint"]
-    sample_rate: int = params.get("sampling_rate", 32000)
-    segment_duration: float = params.get("segment_duration", 3.0)
-    class_mapping: dict = params["class_mapping"]
+    checkpoint_key = f"run_{run_id}/{user_id}/{exp_params.path_to_checkpoint}.pt"
+    sample_rate: int = exp_params.sample_rate
+    segment_duration: float = exp_params.segment_duration if exp_params.segment_duration is not None else 3.0
+    class_mapping: dict = exp_params.class_mapping
 
     _progress("Downloading checkpoint", 20)
     checkpoint_bytes = s3_client.get_object(
         Bucket=CHECKPOINTS_BUCKET,
-        Key=f"run_{run_id}/{user_id}/{checkpoint_name}.pt",
+        Key=checkpoint_key,
     )["Body"].read()
 
     _progress("Building bundle", 60)
@@ -132,7 +131,6 @@ def generate_download_url(db: Session, run_id: int, user_id: str) -> str:
         Params={
             "Bucket": ARTIFACTS_BUCKET,
             "Key": run.deploy_artifact_key,
-            "ResponseContentDisposition": f'attachment; filename="{run.deploy_name}.zip"',
         },
         ExpiresIn=300,
     )

@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, status
-from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from auth.service import get_current_user
@@ -55,17 +54,13 @@ def create_bundle(
     return {"task_id": task.id}
 
 
-@router.get(
-    "/{run_id}/deploy/download",
-    status_code=status.HTTP_302_FOUND,
-    response_class=RedirectResponse,
-)
+@router.get("/{run_id}/deploy/download", status_code=status.HTTP_200_OK)
 def download_bundle(
     run_id: int,
     db: Session = Depends(get_db),
     user: UserInfo = Depends(get_current_user),
 ):
-    """Generate a fresh presigned URL for an existing bundle and redirect to it.
+    """Generate a fresh presigned URL for an existing bundle and return it.
 
     The presigned URL is valid for 5 minutes. Re-clicking the button always
     generates a new URL so there is no stale-link problem.
@@ -80,7 +75,7 @@ def download_bundle(
         InvalidStateError: No bundle has been built for this run yet (→ 409).
 
     Returns:
-        RedirectResponse: 302 redirect to the presigned download URL.
+        dict: Presigned URL for downloading the bundle.
     """
     url = generate_download_url(db=db, run_id=run_id, user_id=user.sub)
-    return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
+    return {"url": url}

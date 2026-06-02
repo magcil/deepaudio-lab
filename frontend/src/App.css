@@ -199,6 +199,30 @@ body {
   text-align: right;
 }
 
+.am-deploy-step {
+  font-size: 13px;
+  color: #c7d4e7;
+  font-family: inherit;
+}
+
+.am-download-btn {
+  padding: 4px 12px;
+  background: rgba(44, 177, 255, 0.1);
+  border: 1px solid rgba(44, 177, 255, 0.3);
+  border-radius: 6px;
+  color: #2cb1ff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.am-download-btn:hover {
+  background: rgba(44, 177, 255, 0.2);
+}
+
 /* ── User / logout bar ── */
 .user-bar {
   position: fixed;

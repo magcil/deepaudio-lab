@@ -13,7 +13,7 @@ from models.run import EvaluationStatus, Run, TaskType
 from repositories import dataset_repository, experiment_params_repository, run_repository
 from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
-from storage.client import CHECKPOINTS_BUCKET
+from storage.client import ARTIFACTS_BUCKET, CHECKPOINTS_BUCKET
 from storage.filer import delete_prefix
 
 
@@ -89,6 +89,12 @@ def delete(db: Session, run_id: int, owner_id: str | None = None) -> bool:
     if run.experiment_params and run.experiment_params.path_to_checkpoint:
         try:
             delete_prefix(bucket=CHECKPOINTS_BUCKET, prefix=f"run_{run_id}/")
+        except Exception:
+            pass
+
+    if run.deploy_artifact_key:
+        try:
+            delete_prefix(bucket=ARTIFACTS_BUCKET, prefix=f"run_{run_id}/")
         except Exception:
             pass
 
@@ -205,6 +211,9 @@ def _serialize_run(run) -> dict:
         "has_evaluation": run.has_evaluation,
         "created_at": run.created_at,
         "dataset_id": dataset_id,
+        "training_status": run.training_status,
+        "deploy_name": run.deploy_name,
+        "deploy_artifact_key": run.deploy_artifact_key,
     }
 
 

@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 from deepaudiox import AudioClassifier
 from fastapi import FastAPI
 
-from deployment.config import CHECKPOINT_PATH
-from deployment.routers.inference import router as inference_router
+from .config import CHECKPOINT_PATH
+from .routers.inference import router as inference_router
 
 
 @asynccontextmanager
