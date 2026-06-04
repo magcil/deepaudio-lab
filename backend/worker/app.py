@@ -13,4 +13,5 @@ celery_app.conf.update(
     task_track_started=True,
     task_track_progress=True,
     worker_prefetch_multiplier=1,
+    worker_max_tasks_per_child=1,
 )
