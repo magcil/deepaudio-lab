@@ -1,0 +1,107 @@
+# Edge reverse proxy for DeepAudio Lab (production).
+#
+# This file is processed by the official nginx image's envsubst step at startup:
+# ${DOMAIN} is filled from the `DOMAIN` environment variable on the `edge`
+# service. nginx's own runtime variables ($host, $uri, $scheme, ...) are NOT
+# environment variables, so envsubst leaves them untouched.
+#
+# Public surface (everything else stays on the internal Docker network):
+#   https://${DOMAIN}           -> SPA  (/)  and backend API  (/api/)
+#   https://auth.${DOMAIN}      -> Keycloak  (browser hits it directly for OIDC)
+#   https://storage.${DOMAIN}   -> SeaweedFS S3  (presigned uploads/downloads)
+
+# ── HTTP : redirect everything to HTTPS ───────────────────────────────────────
+server {
+    listen 80;
+    server_name ${DOMAIN} auth.${DOMAIN} storage.${DOMAIN};
+    return 301 https://$host$request_uri;
+}
+
+# ── App : SPA + backend API ───────────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    # SPA static files (served by the frontend container's own nginx).
+    location / {
+        proxy_pass http://frontend:80;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Backend REST API. The trailing slash on proxy_pass strips the /api prefix,
+    # so the browser calls https://${DOMAIN}/api/datasets and the backend (whose
+    # routers are mounted at root) sees /datasets.
+    location /api/ {
+        proxy_pass http://backend:8000/;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # The task-progress endpoints stream Server-Sent Events. Disable
+        # buffering and allow long-lived connections so progress flows live.
+        proxy_buffering           off;
+        proxy_cache               off;
+        proxy_read_timeout        3600s;
+        chunked_transfer_encoding on;
+    }
+}
+
+# ── Keycloak : browser hits it directly for login / OIDC ──────────────────────
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name auth.${DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    location / {
+        proxy_pass http://keycloak:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+    }
+}
+
+# ── SeaweedFS S3 : presigned uploads/downloads straight from the browser ──────
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name storage.${DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    # Datasets/bundles can be large — do not cap the request body (nginx default
+    # is 1 MB, which would 413 every real upload).
+    client_max_body_size 0;
+
+    location / {
+        # CRITICAL for presigned URLs: SigV4 signs the Host header and the exact
+        # request path. Preserve BOTH — pass Host through unchanged and do NOT
+        # rewrite the path (no trailing slash / URI on proxy_pass). Otherwise
+        # SeaweedFS rejects the request with SignatureDoesNotMatch.
+        proxy_pass http://seaweedfs:8333;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # CORS: the SPA at https://${DOMAIN} uploads cross-origin to this host.
+        add_header Access-Control-Allow-Origin  https://${DOMAIN} always;
+        add_header Access-Control-Allow-Methods "GET, PUT, POST, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "*" always;
+        add_header Access-Control-Max-Age       3600 always;
+
+        # Answer the browser's CORS preflight here without forwarding upstream.
+        if ($request_method = OPTIONS) {
+            return 204;
+        }
+    }
+}

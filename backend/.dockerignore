@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.python-version
+.env
+*.DS_Store

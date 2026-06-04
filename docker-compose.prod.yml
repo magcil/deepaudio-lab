@@ -1,0 +1,221 @@
+name: deepaudio-lab-prod
+
+# Standalone PRODUCTION compose. Single public entry point is the `edge` nginx
+# reverse proxy (ports 80/443). No other service publishes a host port — they
+# communicate over the internal Docker network only.
+#
+# Run with:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# For GPU training, add the override:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml --env-file .env.prod up -d --build
+#
+# Required env vars (put them in .env.prod): DOMAIN, POSTGRES_USER,
+# POSTGRES_PASSWORD, POSTGRES_DB, KC_DB_PASSWORD, KEYCLOAK_ADMIN,
+# KEYCLOAK_ADMIN_PASSWORD, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID,
+# KEYCLOAK_CLIENT_SECRET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.
+
+services:
+
+  # ── Edge reverse proxy / load balancer (the ONLY public service) ──────────
+  edge:
+    image: nginx:1.27-alpine
+    container_name: deepaudio-edge
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}                       # e.g. deepaudio.example.com
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mounted into the templates dir so the image's envsubst fills ${DOMAIN}.
+      - ./deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # Provide fullchain.pem + privkey.pem covering DOMAIN, auth.DOMAIN, storage.DOMAIN
+      # (a SAN or wildcard *.DOMAIN cert). Use certbot/Let's Encrypt to obtain them.
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend
+      - keycloak
+      - seaweedfs
+
+  # ── Application ───────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://${DOMAIN}/api
+        # NOTE: frontend/Dockerfile currently only declares VITE_API_URL as an
+        # ARG. These three are ignored until you add matching ARG/ENV lines to
+        # that Dockerfile — otherwise the build falls back to localhost defaults
+        # and Keycloak login will break in production.
+        VITE_KEYCLOAK_URL: https://auth.${DOMAIN}
+        VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+        VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+    container_name: deepaudio-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    container_name: deepaudio-backend
+    restart: unless-stopped
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      S3_PUBLIC_URL: https://storage.${DOMAIN}
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      DATA_BUCKET: ${DATA_BUCKET:-raw-audios}
+      CHECKPOINTS_BUCKET: ${CHECKPOINTS_BUCKET:-checkpoints}
+      ARTIFACTS_BUCKET: ${ARTIFACTS_BUCKET:-artifacts}
+      USER_SPACE_LIMIT: ${USER_SPACE_LIMIT:-10737418240}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      # Browser-obtained JWTs carry the PUBLIC issuer (KC_HOSTNAME). The backend
+      # must validate against that same issuer URL. extra_hosts (below) lets the
+      # backend resolve it internally to the edge proxy instead of the internet.
+      KEYCLOAK_SERVER_URL: https://auth.${DOMAIN}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    extra_hosts:
+      - "auth.${DOMAIN}:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  worker:
+    build:
+      context: ./backend
+    container_name: deepaudio-worker
+    restart: unless-stopped
+    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo
+    # PyTorch DataLoader workers pass batches through /dev/shm (Docker default
+    # 64 MB); raise it so num_workers > 0 doesn't overflow and get SIGKILLed.
+    shm_size: '2gb'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      S3_PUBLIC_URL: https://storage.${DOMAIN}
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      DATA_BUCKET: ${DATA_BUCKET:-raw-audios}
+      CHECKPOINTS_BUCKET: ${CHECKPOINTS_BUCKET:-checkpoints}
+      ARTIFACTS_BUCKET: ${ARTIFACTS_BUCKET:-artifacts}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      KEYCLOAK_SERVER_URL: https://auth.${DOMAIN}
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+  # ── Infrastructure (internal network only — NO published host ports) ──────
+  db:
+    image: postgres:16
+    container_name: deepaudio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Dedicated database for Keycloak (production Keycloak must not run on the dev
+  # in-memory store). Kept separate from the app DB so schemas don't mix.
+  keycloak-db:
+    image: postgres:16
+    container_name: deepaudio-keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: deepaudio-keycloak
+    restart: unless-stopped
+    # Production mode (NOT start-dev). Imports the realm on first boot.
+    command: start --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      # Public URL the browser uses; also pins the token issuer to this value.
+      KC_HOSTNAME: https://auth.${DOMAIN}
+      KC_HTTP_ENABLED: "true"                 # TLS is terminated at the edge proxy
+      KC_PROXY_HEADERS: xforwarded            # trust X-Forwarded-* from edge
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    expose:
+      - "8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: deepaudio-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.80          # pin to a known-good release; verify before deploy
+    container_name: deepaudio-seaweedfs
+    restart: unless-stopped
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET: raw-audios, checkpoints, artifacts
+    volumes:
+      - seaweedfs_data:/data
+
+volumes:
+  postgres_data:
+  keycloak_db_data:
+  seaweedfs_data:
