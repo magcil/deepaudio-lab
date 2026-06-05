@@ -169,3 +169,47 @@ class QuotaExceededError(AppError):
             f"Used: {used:,} / {limit:,} bytes. "
             f"Remaining: {remaining:,} bytes."
         )
+
+class UnprocessableEntityError(AppError):
+    """Raised when a request is well-formed but semantically invalid.
+
+    Maps to HTTP 422 Unprocessable Entity.
+    """
+
+    def __init__(self, message: str):
+        """Initialize an UnprocessableEntityError.
+
+        Args:
+            message (str): Detailed explanation of why the request cannot be processed.
+        """
+        super().__init__(message)
+
+        
+class InsufficientStorageError(AppError):
+    """Raised when the server lacks storage needed to complete the request.
+
+    Maps to HTTP 507 Insufficient Storage.
+
+    Attributes:
+        used (int): Bytes already consumed by the whole system.
+        limit (int): Maximum bytes allowed for the whole system.
+        requested (int): Bytes the user is attempting to upload.
+    """
+
+    def __init__(self, used: int, limit: int, requested: int):
+        """Initialize an InsufficientStorageError.
+
+        Args:
+            used (int): Bytes already consumed by the whole system.
+            limit (int): Maximum bytes allowed for whole system.
+            requested (int): Bytes the user is attempting to upload.
+        """
+        self.used = used
+        self.limit = limit
+        self.requested = requested
+        remaining = limit - used
+        super().__init__(
+            f"Upload of {requested:,} bytes would exceed total storage. "
+            f"Used: {used:,} / {limit:,} bytes. "
+            f" Sytem has remaining: {remaining:,} bytes."
+        )

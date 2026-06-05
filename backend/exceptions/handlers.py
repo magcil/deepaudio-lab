@@ -10,10 +10,12 @@ from exceptions.exceptions import (
     EntityNotFoundError,
     InvalidResourceError,
     InvalidStateError,
+    InsufficientStorageError,
     QuotaExceededError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
     UnauthorizedError,
+    UnprocessableEntityError,
 )
 
 
@@ -46,6 +48,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def invalid_resource(request: Request, exc: InvalidResourceError):
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
+
+    @app.exception_handler(UnprocessableEntityError)
+    async def unprocessable_entity(request: Request, exc: UnprocessableEntityError):
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
     @app.exception_handler(UnauthorizedError)
     async def unauthorized(request: Request, exc: UnauthorizedError):
         return JSONResponse(status_code=403, content={"detail": str(exc)})
@@ -53,6 +60,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(QuotaExceededError)
     async def quota_exceeded(request: Request, exc: QuotaExceededError):
         return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+    @app.exception_handler(InsufficientStorageError)
+    async def insufficient_storage(request: Request, exc: InsufficientStorageError):
+        return JSONResponse(status_code=507, content={"detail": str(exc)})
 
     @app.exception_handler(InvalidStateError)
     async def invalid_state(request: Request, exc: InvalidStateError):

@@ -7,6 +7,7 @@ from exceptions.exceptions import (
     EntityNotFoundError,
     InvalidStateError,
     ReferencedEntityNotFoundError,
+    UnprocessableEntityError,
 )
 from models.experiment_params import ExperimentParams
 from models.run import EvaluationStatus, Run, TaskType
@@ -15,6 +16,7 @@ from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
 from storage.client import ARTIFACTS_BUCKET, CHECKPOINTS_BUCKET
 from storage.filer import delete_prefix
+from config.limits import MAX_EPOCHS, MAX_BATCH_SIZE, MAX_NUM_WORKERS, MAX_SEGMENT_DURATION
 
 
 def get_all(db: Session, owner_id: str | None = None) -> list[dict]:
@@ -100,6 +102,32 @@ def delete(db: Session, run_id: int, owner_id: str | None = None) -> bool:
 
     return run_repository.delete(db, run_id)
 
+
+def validate_run_params(params: TrainParams):
+    errors = []
+
+    if params.batch_size > MAX_BATCH_SIZE:
+        errors.append(
+            f"batch_size must be <= {MAX_BATCH_SIZE}"
+        )
+
+    if params.epochs > MAX_EPOCHS:
+        errors.append(
+            f"epochs must be <= {MAX_EPOCHS}"
+        )
+
+    if params.segment_duration > MAX_SEGMENT_DURATION:
+        errors.append(
+            f"segment_duration must be <= {MAX_SEGMENT_DURATION}"
+        )
+
+    if params.workers > MAX_NUM_WORKERS:
+        errors.append(
+            f"workers must be <= {MAX_NUM_WORKERS}"
+        )
+
+    if errors:
+        raise UnprocessableEntityError(f"Parameters exceed limits: {', '.join(errors)}")
 
 def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.

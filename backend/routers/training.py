@@ -14,7 +14,7 @@ from db.session import get_db
 from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
 from schemas.user_info import UserInfo
-from services import run_service
+from services import limit_service, run_service
 from worker.app import celery_app
 from worker.training import run_training
 
@@ -107,3 +107,8 @@ async def get_progress(task_id: str, db: Session = Depends(get_db), user: UserIn
             await asyncio.sleep(2)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.get("/limits", status_code=status.HTTP_200_OK)
+def get_training_limits(_: UserInfo = Depends(get_current_user)):
+    return limit_service.get_current_limits()

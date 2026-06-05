@@ -3,17 +3,23 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
-from exceptions.exceptions import EntityNotFoundError, QuotaExceededError
+from exceptions.exceptions import EntityNotFoundError, QuotaExceededError, InsufficientStorageError
 from models.dataset import Dataset, DatasetStatus
 from repositories import dataset_repository
 from services import storage_service
 from services.storage_service import put_user_presigned_url
 from storage.client import DATA_BUCKET, s3_client
-
+from config.limits import USER_SPACE_LIMIT, TOTAL_STORAGE_LIMIT
 load_dotenv()
 
-USER_SPACE_LIMIT: int = int(os.getenv("USER_SPACE_LIMIT", 10 * 1024**3))
 
+def get_total_storage_used(bucket: str) -> int:
+    paginator = s3_client.get_paginator("list_objects_v2")
+    total = 0
+    for page in paginator.paginate(Bucket=bucket):
+        for obj in page.get("Contents", []):
+            total += obj["Size"]
+    return total
 
 def request_upload(
     db: Session,
@@ -25,9 +31,9 @@ def request_upload(
 ) -> dict:
     """Validate quota, register a new dataset, and return presigned upload URLs.
 
-    Checks whether the user has enough remaining storage capacity before
-    creating the Dataset row in ``uploading`` status and generating one
-    presigned PUT URL per file path.
+    Checks whether the user and the system has enough remaining storage 
+    capacity before creating the Dataset row in ``uploading`` status and 
+    generating one presigned PUT URL per file path.
 
     Args:
         db (Session): Active SQLAlchemy session.
@@ -43,15 +49,29 @@ def request_upload(
     Raises:
         QuotaExceededError: If ``current_usage + total_bytes`` exceeds
             ``USER_SPACE_LIMIT``.
+        QuotaExceededError: If ``current_usage + total_bytes`` exceeds
+            ``TOTAL_SPACE_LIMIT``.
         DuplicateEntityError: If the user already has a dataset with
             the same name.
 
     Returns:
         dict: ``{"dataset_id": int, "urls": [{"path", "key", "url"}, ...]}``
     """
+    total_used_by_system = get_total_storage_used(DATA_BUCKET)
     used = dataset_repository.get_total_size_by_user(db, user_id)
+    
+    if total_used_by_system + total_bytes > TOTAL_STORAGE_LIMIT:
+        raise InsufficientStorageError(
+            used=total_used_by_system, 
+            limit=TOTAL_STORAGE_LIMIT, 
+            requested=total_bytes
+        )
     if used + total_bytes > USER_SPACE_LIMIT:
-        raise QuotaExceededError(used=used, limit=USER_SPACE_LIMIT, requested=total_bytes)
+        raise QuotaExceededError(
+            used=used,
+            limit=USER_SPACE_LIMIT, 
+            requested=total_bytes
+        )
 
     dataset = Dataset(
         user_id=user_id,
