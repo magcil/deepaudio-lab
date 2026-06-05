@@ -141,6 +141,8 @@ def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
         dict: Serialized run detail including the new run's metadata and
             its persisted experiment parameters.
     """
+    validate_run_params(params=params)
+    
     dataset = dataset_repository.get_by_id(db, params.dataset_id)
     if dataset is None:
         raise EntityNotFoundError("Dataset", params.dataset_id)
