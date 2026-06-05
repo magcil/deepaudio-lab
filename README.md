@@ -106,6 +106,19 @@ npm run dev
 
 The app will be available at `http://localhost:5173`.
 
+### 6. Keycloak
+
+```bash
+cd keycloak
+docker compose up -d
+```
+
+To stop:
+
+```bash
+docker compose down
+```
+
 ## Development
 
 Install backend dev dependencies (includes `pytest`, `ruff`, and type stubs):
