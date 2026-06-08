@@ -39,7 +39,9 @@ docker compose down
 
 ### Full app (all services containerised, no GPU)
 
-Builds and starts every service including the backend, Celery worker, and frontend:
+Builds and starts every service: the backend, the Celery training worker, the
+**Celery Beat scheduler** and **maintenance worker** (background reaper — see
+[Background services & limits](#background-services--limits)), and the frontend:
 
 ```bash
 docker compose --profile app up --build
@@ -57,6 +59,41 @@ Required when the host machine has an NVIDIA GPU and `nvidia-container-toolkit` 
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile app up --build
+```
+
+### Background services & limits
+
+The `app` profile also starts two maintenance services:
+
+- **`beat`** — a Celery Beat scheduler that triggers the periodic reaper.
+- **`maintenance-worker`** — a lean (no-GPU, no-PyTorch) Celery worker that runs
+  the reaper on its own `maintenance` queue, so it never competes with training.
+
+On each run (every `REAPER_INTERVAL_SECONDS`) the reaper:
+
+1. Marks runs stuck **In Progress** whose worker died (expired liveness
+   heartbeat) as **Failed**.
+2. If `DATASET_RETENTION_ENABLED=true`, deletes datasets older than
+   `DATASET_RETENTION_SECONDS` that are **not in use** by an active job.
+
+Concurrency caps reject new jobs (HTTP 429/503) when a user or the system is at
+its in-flight limit. The relevant `.env` knobs (full list in `.env.example`):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `MAX_USER_TRAININGS` / `MAX_SYSTEM_TRAININGS` | training caps (user / system) | 1 / 4 |
+| `MAX_USER_EVALUATIONS` / `MAX_SYSTEM_EVALUATIONS` | evaluation caps | 2 / 4 |
+| `MAX_USER_JOBS` / `MAX_SYSTEM_JOBS` | overall in-flight caps | 2 / 4 |
+| `HEARTBEAT_INTERVAL_SECONDS` / `JOB_HEARTBEAT_TTL_SECONDS` | job liveness heartbeat | 30 / 180 |
+| `REAPER_INTERVAL_SECONDS` | how often the reaper runs | 300 |
+| `DATASET_RETENTION_ENABLED` | enable dataset auto-deletion | false |
+| `DATASET_RETENTION_SECONDS` | age threshold for deletion | 2592000 (30d) |
+
+These are read at container startup, so apply a change by recreating the
+affected service (no rebuild needed) — e.g.:
+
+```bash
+docker compose --profile app up -d --force-recreate maintenance-worker
 ```
 
 ### Service URLs
@@ -97,12 +134,22 @@ KEYCLOAK_CLIENT_ID=deepaudiolab-backend
 KEYCLOAK_CLIENT_SECRET=dev-secret
 ```
 
+The training limits, concurrency caps, heartbeat, and reaper settings all have
+sensible defaults (see [Background services & limits](#background-services--limits)),
+so you only need to add them to `backend/.env` if you want to override them.
+
 ### Backend dependencies
+
+The heavy ML stack (`deepaudio-x` → PyTorch/CUDA) is an optional `ml` extra, so
+the API and training worker need it installed explicitly:
 
 ```bash
 cd backend
-uv sync
+uv sync --extra ml
 ```
+
+> Only running the maintenance worker/reaper? Plain `uv sync` (without `--extra
+> ml`) is enough — it has no PyTorch dependency.
 
 ### Frontend dependencies
 
@@ -113,15 +160,20 @@ npm install
 
 ### 1. Celery worker
 
+Each worker imports only the task modules it needs via `--include` (the Celery
+app no longer imports them eagerly, which keeps the maintenance worker
+PyTorch-free):
+
 ```bash
 cd backend
-uv run celery -A worker.app.celery_app worker --loglevel=info --pool=solo
+uv run celery -A worker.app.celery_app worker --loglevel=info --pool=solo \
+  --include=worker.training,worker.evaluation,worker.deployment
 ```
 
 For auto-reload on code changes, install `watchfiles` and run:
 
 ```bash
-uv run watchfiles "celery -A worker.app.celery_app worker --loglevel=info --pool=solo" backend
+uv run watchfiles "celery -A worker.app.celery_app worker --loglevel=info --pool=solo --include=worker.training,worker.evaluation,worker.deployment" backend
 ```
 
 ### 2. Backend
@@ -142,15 +194,36 @@ npm run dev
 
 The app will be available at `http://localhost:5173`.
 
+### 4. (Optional) Background reaper
+
+Only needed if you want the periodic reaper (stale-run cleanup and dataset
+retention) while developing locally. Run the scheduler and a maintenance worker
+in two terminals:
+
+```bash
+cd backend
+uv run celery -A worker.app.celery_app beat --loglevel=info
+```
+
+```bash
+cd backend
+uv run celery -A worker.app.celery_app worker --loglevel=info --pool=solo \
+  --queues=maintenance --include=worker.maintenance
+```
+
+See [Background services & limits](#background-services--limits) for the env
+variables that control it.
+
 ---
 
 ## Development
 
-Install backend dev dependencies (includes `pytest`, `ruff`, and type stubs):
+Install backend dev dependencies (includes `pytest`, `ruff`, and type stubs)
+alongside the ML extra:
 
 ```bash
 cd backend
-uv sync --group dev
+uv sync --extra ml --group dev
 ```
 
 Lint:
