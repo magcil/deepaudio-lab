@@ -1,4 +1,5 @@
 from .client import s3_client as s3
+from .client import s3_presign_client as s3_presign
 
 
 def get_presigned_url(bucket: str, key: str, expires_in: int = 3600) -> str:
@@ -12,7 +13,7 @@ def get_presigned_url(bucket: str, key: str, expires_in: int = 3600) -> str:
     Returns:
         Presigned URL string.
     """
-    return s3.generate_presigned_url(
+    return s3_presign.generate_presigned_url(
         ClientMethod="get_object",
         Params={"Bucket": bucket, "Key": key},
         ExpiresIn=expires_in,
@@ -29,7 +30,7 @@ def put_presigned_url(bucket: str, key: str, expires_in: int = 3600) -> str:
     Returns:
         Presigned URL string.
     """
-    return s3.generate_presigned_url(
+    return s3_presign.generate_presigned_url(
         ClientMethod="put_object",
         Params={"Bucket": bucket, "Key": key, "ContentType": "audio/wav"},
         ExpiresIn=expires_in,

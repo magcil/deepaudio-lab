@@ -9,6 +9,10 @@ S3_API = os.getenv("S3_API")
 if not S3_API:
     raise ValueError("S3_API is not set in .env")
 
+# Public URL used when generating presigned URLs that the browser will fetch.
+# In Docker this differs from S3_API (which uses the internal container hostname).
+S3_PUBLIC_URL = os.getenv("S3_PUBLIC_URL", S3_API)
+
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 if not AWS_ACCESS_KEY_ID:
     raise ValueError("AWS_ACCESS_KEY_ID is not set in .env")
@@ -24,4 +28,10 @@ ARTIFACTS_BUCKET = os.getenv("ARTIFACTS_BUCKET", "artifacts")
 
 s3_client = boto3.client(
     "s3", endpoint_url=S3_API, aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+)
+
+# Separate client whose endpoint is the browser-reachable URL, used only for
+# generating presigned URLs. Bucket operations always use s3_client.
+s3_presign_client = boto3.client(
+    "s3", endpoint_url=S3_PUBLIC_URL, aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY
 )
