@@ -3,3 +3,4 @@ from models.dataset import Dataset  # noqa: F401 — registers the model in this
 from models.experiment_params import ExperimentParams  # noqa: F401 — registers the model in this process
 from models.loss import Loss  # noqa: F401 — registers the model in this process
 from models.run import Run  # noqa: F401 — registers the model in this process
+from models.user import User  # noqa: F401 — registers the model in this process

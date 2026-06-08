@@ -4,13 +4,15 @@ import json
 
 import torch
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from auth.service import get_current_user, require_regular
 from db.session import get_db
 from repositories import run_repository
 from schemas.evaluation_params import EvaluationOptionsResponse, EvaluationParams
+from schemas.user_info import UserInfo
 from services import run_service
 from worker.app import celery_app
 from worker.evaluation import run_evaluation
@@ -19,7 +21,7 @@ router = APIRouter(prefix="/evaluate", tags=["Evaluation"])
 
 
 @router.get("/options", response_model=EvaluationOptionsResponse, status_code=status.HTTP_200_OK)
-def get_evaluation_options():
+def get_evaluation_options(_: UserInfo = Depends(get_current_user)):
     """Retrieve available device options for evaluation.
 
     Returns:
@@ -37,7 +39,7 @@ def get_evaluation_options():
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
-def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
+def evaluate(params: EvaluationParams, db: Session = Depends(get_db), user: UserInfo = Depends(require_regular)):
     """Start an audio classification evaluation job.
 
     Validates the requested training run, updates its associated
@@ -59,14 +61,14 @@ def evaluate(params: EvaluationParams, db: Session = Depends(get_db)):
             does not exist.
         InvalidStateError: If the experiment has already been evaluated.
     """
-    run_id, exp_params = run_service.register_evaluation(db, params)
-    task = run_evaluation.delay(run_id, exp_params)
+    run_id, exp_params = run_service.register_evaluation(db, params, owner_id=user.sub)
+    task = run_evaluation.delay(run_id, exp_params, user.sub)
     run_repository.update_task_id(db, run_id, task.id)
     return {"task_id": task.id}
 
 
 @router.get("/progress/{task_id}")
-async def get_progress(task_id: str):
+async def get_progress(task_id: str, db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
     """Stream evaluation progress updates via Server-Sent Events.
 
     Polls the Celery task state every 2 seconds and streams updates
@@ -78,6 +80,11 @@ async def get_progress(task_id: str):
     Returns:
         StreamingResponse: SSE stream of task state and progress metadata.
     """
+
+    if not user.is_admin:
+        run = run_repository.get_by_task_id(db, task_id)
+        if run is None or run.created_by != user.sub:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     async def event_stream():
         while True:

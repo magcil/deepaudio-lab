@@ -46,8 +46,6 @@ export default function Datasets() {
     setUploadError(null)
     const paths = entries.map(e => e.path)
     const totalBytes = entries.reduce((sum, e) => sum + e.file.size, 0)
-    console.log('presigned request', { user_id: 'default', dataset_name: meta.name, description: meta.description, paths, total_bytes: totalBytes })
-
     let data
     try {
       data = await getPresignedUrls(paths, totalBytes, meta.name, meta.description)
@@ -66,16 +64,18 @@ export default function Datasets() {
 
     setProgress({ uploaded: 0, total: data.urls.length })
 
+    const CONCURRENCY = 10
     try {
-      await Promise.all(
-        data.urls.map(({ url, path }) => {
-          const entry = entries.find(e => e.path === path)!
-          return (async () => {
-            await uploadFileToPresignedUrl(url, entry.file)
-            setProgress(prev => prev && { ...prev, uploaded: prev.uploaded + 1 })
-          })()
-        })
-      )
+      const queue = data.urls.slice()
+      const worker = async () => {
+        while (queue.length > 0) {
+          const item = queue.shift()!
+          const entry = entries.find(e => e.path === item.path)!
+          await uploadFileToPresignedUrl(item.url, entry.file)
+          setProgress(prev => prev && { ...prev, uploaded: prev.uploaded + 1 })
+        }
+      }
+      await Promise.all(Array.from({ length: CONCURRENCY }, worker))
       await confirmDataset(data.dataset_id, totalBytes, entries.length)
       fetchDatasets()
     } catch {

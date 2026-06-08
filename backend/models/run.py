@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -80,12 +80,16 @@ class Run(Base):
 
     __tablename__ = "run"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
+    created_by = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=True, index=True)
+    name = Column(String, nullable=False)
     description = Column(String)
     task_type: Mapped[TaskType] = mapped_column(Enum(TaskType, native_enum=False), nullable=False)
     task_id = Column(String, nullable=True, index=True)
     has_evaluation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    deploy_name = Column(String, nullable=True)
+    deploy_artifact_key = Column(String, nullable=True)
+    deploy_task_id = Column(String, nullable=True, index=True)
     training_status: Mapped[TrainingStatus] = mapped_column(
         Enum(TrainingStatus, native_enum=False), nullable=False, default=TrainingStatus.pending
     )
@@ -94,6 +98,8 @@ class Run(Base):
     )
 
     # Define relationships
+    creator = relationship("User", back_populates="runs", foreign_keys=[created_by])
+
     experiment_params = relationship(
         "ExperimentParams", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True
     )
@@ -103,3 +109,5 @@ class Run(Base):
     classification_report = relationship(
         "ClassificationReport", back_populates="run", cascade="all, delete-orphan", uselist=False, passive_deletes=True
     )
+
+    __table_args__ = (UniqueConstraint("created_by", "name", name="uq_run_user_name"),)

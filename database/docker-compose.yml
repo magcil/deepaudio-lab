@@ -28,6 +28,7 @@ services:
     volumes:
       - seaweedfs_data:/data
 
+
 volumes:
   postgres_data:
   seaweedfs_data:

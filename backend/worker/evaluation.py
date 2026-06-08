@@ -1,3 +1,4 @@
+import pickle
 import sys
 from pathlib import Path
 
@@ -12,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @celery_app.task(bind=True)
-def run_evaluation(self, run_id: int, exp_params: dict):
+def run_evaluation(self, run_id: int, exp_params: dict, user_id: str):
     def progress_callback(current_batch, total_batches, elapsed, eta):
         self.update_state(
             state="PROGRESS",
@@ -26,7 +27,7 @@ def run_evaluation(self, run_id: int, exp_params: dict):
         )
 
     service = EvaluationService()
-    report = service.perform_evaluation(run_id, exp_params, progress_callback=progress_callback)
+    report = service.perform_evaluation(run_id, exp_params, user_id=user_id, progress_callback=progress_callback)
 
     if report is None:
         return {"status": "failed"}
@@ -39,8 +40,12 @@ def run_evaluation(self, run_id: int, exp_params: dict):
             report=ClassificationReport(run_id=run_id, report=report),
         )
         db.commit()
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        try:
+            pickle.dumps(exc)
+        except Exception:
+            raise RuntimeError(f"{type(exc).__name__}: {exc}") from None
         raise
     finally:
         db.close()

@@ -23,11 +23,11 @@ export interface Dataset {
 }
 
 export function getDatasets(): Promise<Dataset[]> {
-  return client.get<Dataset[]>('/datasets?user_id=default')
+  return client.get<Dataset[]>('/datasets')
 }
 
 export function getPresignedUrls(paths: string[], totalBytes: number, datasetName: string, description: string): Promise<PresignResponse> {
-  return client.post<PresignResponse>('/datasets/presigned', { user_id: 'default', dataset_name: datasetName, description, paths, total_bytes: totalBytes })
+  return client.post<PresignResponse>('/datasets/presigned', { dataset_name: datasetName, description, paths, total_bytes: totalBytes })
 }
 
 export function confirmDataset(datasetId: string, sizeBytes: number, numFiles: number): Promise<void> {

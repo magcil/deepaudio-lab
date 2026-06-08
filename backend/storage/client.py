@@ -20,6 +20,7 @@ if not AWS_SECRET_ACCESS_KEY:
 # Paths in filestorage for raw datasets and checkpoints, can be overridden by .env
 DATA_BUCKET = os.getenv("DATA_BUCKET", "raw-audios")
 CHECKPOINTS_BUCKET = os.getenv("CHECKPOINTS_BUCKET", "checkpoints")
+ARTIFACTS_BUCKET = os.getenv("ARTIFACTS_BUCKET", "artifacts")
 
 s3_client = boto3.client(
     "s3", endpoint_url=S3_API, aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY

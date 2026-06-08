@@ -3,83 +3,101 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from auth.service import get_current_user
 from db.session import get_db
 from exceptions.exceptions import EntityNotFoundError
 from models.run import EvaluationStatus, TrainingStatus
+from schemas.user_info import UserInfo
 from services import run_service
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
 
 @router.get("/", status_code=status.HTTP_200_OK)
-def get_all_runs(db: Session = Depends(get_db)):
-    """Retrieve all runs.
+def get_all_runs(db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Return all runs visible to the authenticated user.
+
+    Admins receive all runs in the system; regular users only receive
+    runs they own.
 
     Args:
-        db (Session, optional): SQLAlchemy session injected by FastAPI
-            via the ``get_db`` dependency.
+        db (Session): SQLAlchemy database session.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
 
     Returns:
-        list[dict]: All persisted runs as a list of serialized run objects.
+        list[dict]: Serialized list of runs.
     """
-    return run_service.get_all(db)
+    owner_id = None if user.is_admin else user.sub
+    return run_service.get_all(db, owner_id=owner_id)
 
 
 @router.get("/type/train", status_code=status.HTTP_200_OK)
-def get_train_runs(db: Session = Depends(get_db)):
-    """Retrieve all train runs.
+def get_train_runs(db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Return successfully completed training runs eligible for evaluation.
+
+    Admins receive all qualifying runs; regular users only see their own.
+    A run is included if its training status is successful and its
+    evaluation status is either absent or previously failed.
 
     Args:
-        db (Session, optional): SQLAlchemy session injected by FastAPI
-            via the ``get_db`` dependency.
+        db (Session): SQLAlchemy database session.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
 
     Returns:
-        list[dict]: All runs with task_type 'train'.
+        list[dict]: Serialized list of qualifying training runs.
     """
-    train_runs = run_service.get(
+    owner_id = None if user.is_admin else user.sub
+    return run_service.get(
         db,
+        owner_id=owner_id,
         task_type="train",
         training_status=TrainingStatus.success,
         evaluation_status=[None, EvaluationStatus.failure],
     )
 
-    return train_runs
-
 
 @router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_run(run_id: int, db: Session = Depends(get_db)):
-    """Delete a run and all its owned data.
+def delete_run(run_id: int, db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Delete a run by ID.
+
+    Admins can delete any run; regular users can only delete their own.
 
     Args:
         run_id (int): Primary key of the run to delete.
-        db (Session, optional): SQLAlchemy session injected by FastAPI
-            via the ``get_db`` dependency.
+        db (Session): SQLAlchemy database session.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
 
     Raises:
-        EntityNotFoundError: No run with the given ``run_id`` exists.
+        EntityNotFoundError: If no run with the given ID exists, or if
+            the run does not belong to the requesting user.
     """
-    deleted = run_service.delete(db, run_id)
+    owner_id = None if user.is_admin else user.sub
+    deleted = run_service.delete(db, run_id, owner_id=owner_id)
     if not deleted:
         raise EntityNotFoundError("Run", run_id)
 
 
 @router.get("/{run_id}", status_code=status.HTTP_200_OK)
-def get_run(run_id: int, db: Session = Depends(get_db)):
-    """Retrieve all information about a single run.
+def get_run(run_id: int, db: Session = Depends(get_db), user: UserInfo = Depends(get_current_user)):
+    """Retrieve a single run by ID with full details.
+
+    Admins can access any run; regular users can only access their own.
 
     Args:
         run_id (int): Primary key of the run to retrieve.
-        db (Session, optional): SQLAlchemy session injected by FastAPI
-            via the ``get_db`` dependency.
+        db (Session): SQLAlchemy database session.
+        user (UserInfo): The authenticated user resolved by `get_current_user`.
 
     Raises:
-        EntityNotFoundError: No run with the given ``run_id`` exists.
+        EntityNotFoundError: If no run with the given ID exists, or if
+            the run does not belong to the requesting user.
 
     Returns:
-        dict: The run's fields plus train params, loss history,
-        and classification report.
+        dict: Serialized run detail including experiment parameters,
+            loss history, and classification report.
     """
-    run = run_service.get_by_id(db, run_id)
+    owner_id = None if user.is_admin else user.sub
+    run = run_service.get_by_id(db, run_id, owner_id=owner_id)
     if run is None:
         raise EntityNotFoundError("Run", run_id)
     return run

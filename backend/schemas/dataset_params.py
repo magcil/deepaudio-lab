@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 
 class DatasetUploadRequest(BaseModel):
-    user_id: str
     dataset_name: str
     description: str | None = None
     paths: list[str]
