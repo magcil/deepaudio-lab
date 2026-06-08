@@ -1,10 +1,11 @@
 from config.limits import (
-    MAX_EPOCHS,
     MAX_BATCH_SIZE,
+    MAX_EPOCHS,
     MAX_NUM_WORKERS,
     MAX_SEGMENT_DURATION,
     USER_SPACE_LIMIT,
 )
+
 
 def get_current_limits():
     return {

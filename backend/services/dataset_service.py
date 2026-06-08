@@ -1,15 +1,14 @@
-import os
-
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
-from exceptions.exceptions import EntityNotFoundError, QuotaExceededError, InsufficientStorageError
+from config.limits import TOTAL_STORAGE_LIMIT, USER_SPACE_LIMIT
+from exceptions.exceptions import EntityNotFoundError, InsufficientStorageError, QuotaExceededError
 from models.dataset import Dataset, DatasetStatus
 from repositories import dataset_repository
 from services import storage_service
 from services.storage_service import put_user_presigned_url
 from storage.client import DATA_BUCKET, s3_client
-from config.limits import USER_SPACE_LIMIT, TOTAL_STORAGE_LIMIT
+
 load_dotenv()
 
 
@@ -21,6 +20,7 @@ def get_total_storage_used(bucket: str) -> int:
             total += obj["Size"]
     return total
 
+
 def request_upload(
     db: Session,
     user_id: str,
@@ -31,8 +31,8 @@ def request_upload(
 ) -> dict:
     """Validate quota, register a new dataset, and return presigned upload URLs.
 
-    Checks whether the user and the system has enough remaining storage 
-    capacity before creating the Dataset row in ``uploading`` status and 
+    Checks whether the user and the system has enough remaining storage
+    capacity before creating the Dataset row in ``uploading`` status and
     generating one presigned PUT URL per file path.
 
     Args:
@@ -59,19 +59,11 @@ def request_upload(
     """
     total_used_by_system = get_total_storage_used(DATA_BUCKET)
     used = dataset_repository.get_total_size_by_user(db, user_id)
-    
+
     if total_used_by_system + total_bytes > TOTAL_STORAGE_LIMIT:
-        raise InsufficientStorageError(
-            used=total_used_by_system, 
-            limit=TOTAL_STORAGE_LIMIT, 
-            requested=total_bytes
-        )
+        raise InsufficientStorageError(used=total_used_by_system, limit=TOTAL_STORAGE_LIMIT, requested=total_bytes)
     if used + total_bytes > USER_SPACE_LIMIT:
-        raise QuotaExceededError(
-            used=used,
-            limit=USER_SPACE_LIMIT, 
-            requested=total_bytes
-        )
+        raise QuotaExceededError(used=used, limit=USER_SPACE_LIMIT, requested=total_bytes)
 
     dataset = Dataset(
         user_id=user_id,

@@ -3,6 +3,7 @@
 from sqlalchemy.orm import Session
 
 from adapters.utils import get_class_mapping_from_s3_dataset
+from config.limits import MAX_BATCH_SIZE, MAX_EPOCHS, MAX_NUM_WORKERS, MAX_SEGMENT_DURATION
 from exceptions.exceptions import (
     EntityNotFoundError,
     InvalidStateError,
@@ -16,7 +17,6 @@ from schemas.evaluation_params import EvaluationParams
 from schemas.train_params import TrainParams
 from storage.client import ARTIFACTS_BUCKET, CHECKPOINTS_BUCKET
 from storage.filer import delete_prefix
-from config.limits import MAX_EPOCHS, MAX_BATCH_SIZE, MAX_NUM_WORKERS, MAX_SEGMENT_DURATION
 
 
 def get_all(db: Session, owner_id: str | None = None) -> list[dict]:
@@ -107,27 +107,20 @@ def validate_run_params(params: TrainParams):
     errors = []
 
     if params.batch_size > MAX_BATCH_SIZE:
-        errors.append(
-            f"batch_size must be <= {MAX_BATCH_SIZE}"
-        )
+        errors.append(f"batch_size must be <= {MAX_BATCH_SIZE}")
 
     if params.epochs > MAX_EPOCHS:
-        errors.append(
-            f"epochs must be <= {MAX_EPOCHS}"
-        )
+        errors.append(f"epochs must be <= {MAX_EPOCHS}")
 
     if params.segment_duration > MAX_SEGMENT_DURATION:
-        errors.append(
-            f"segment_duration must be <= {MAX_SEGMENT_DURATION}"
-        )
+        errors.append(f"segment_duration must be <= {MAX_SEGMENT_DURATION}")
 
     if params.workers > MAX_NUM_WORKERS:
-        errors.append(
-            f"workers must be <= {MAX_NUM_WORKERS}"
-        )
+        errors.append(f"workers must be <= {MAX_NUM_WORKERS}")
 
     if errors:
         raise UnprocessableEntityError(f"Parameters exceed limits: {', '.join(errors)}")
+
 
 def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
@@ -142,7 +135,7 @@ def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
             its persisted experiment parameters.
     """
     validate_run_params(params=params)
-    
+
     dataset = dataset_repository.get_by_id(db, params.dataset_id)
     if dataset is None:
         raise EntityNotFoundError("Dataset", params.dataset_id)

@@ -4,6 +4,7 @@ import ModelSettingsSection from './ModelSettingsSection'
 import HyperparametersSection from './HyperparametersSection'
 import { startTraining, getTrainingOptions, getTrainingLimits, type TrainingOptions, type TrainingLimits } from '../../services/trainingService'
 import { getDatasets, type Dataset } from '../../services/datasetService'
+import { ApiError } from '../../api/client'
 import './TrainingForm.css'
 
 export interface TrainingFormData {
@@ -61,6 +62,7 @@ export default function TrainingForm() {
   const [limits, setLimits] = useState<TrainingLimits | null>(null)
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [started, setStarted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     getTrainingOptions()
@@ -115,11 +117,21 @@ export default function TrainingForm() {
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
     }
 
-    const { task_id } = await startTraining(payload)
-    console.log('Training started, task_id:', task_id)
-    setForm(INITIAL_FORM)
-    setStarted(true)
-    setTimeout(() => setStarted(false), 8000)
+    setSubmitError(null)
+    try {
+      const { task_id } = await startTraining(payload)
+      console.log('Training started, task_id:', task_id)
+      setForm(INITIAL_FORM)
+      setStarted(true)
+      setTimeout(() => setStarted(false), 8000)
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 429 || err.status === 503)) {
+        // Backend returns a friendly detail message for job-limit / capacity errors.
+        setSubmitError(err.message)
+      } else {
+        setSubmitError('Could not start training. Please try again.')
+      }
+    }
   }
 
   return (
@@ -131,6 +143,7 @@ export default function TrainingForm() {
       <div className="form-actions">
         <button type="submit" className="btn-primary">Start Training</button>
         {started && <p className="training-started-msg">Training has started</p>}
+        {submitError && <p className="training-error-msg">{submitError}</p>}
       </div>
     </form>
   )

@@ -170,6 +170,7 @@ class QuotaExceededError(AppError):
             f"Remaining: {remaining:,} bytes."
         )
 
+
 class UnprocessableEntityError(AppError):
     """Raised when a request is well-formed but semantically invalid.
 
@@ -184,7 +185,7 @@ class UnprocessableEntityError(AppError):
         """
         super().__init__(message)
 
-        
+
 class InsufficientStorageError(AppError):
     """Raised when the server lacks storage needed to complete the request.
 
@@ -212,4 +213,45 @@ class InsufficientStorageError(AppError):
             f"Upload of {requested:,} bytes would exceed total storage. "
             f"Used: {used:,} / {limit:,} bytes. "
             f"System has remaining: {remaining:,} bytes."
+        )
+
+
+class UserJobLimitError(AppError):
+    """Raised when a user already has the maximum number of in-flight jobs.
+
+    Maps to HTTP 429 Too Many Requests.
+
+    Attributes:
+        job_type (str): The kind of job being requested (e.g. "training").
+        active (int): The user's current in-flight count for this scope.
+        limit (int): The maximum allowed for this scope.
+    """
+
+    def __init__(self, job_type: str, active: int, limit: int):
+        self.job_type = job_type
+        self.active = active
+        self.limit = limit
+        super().__init__(
+            f"You already have {active} active {job_type} job(s) "
+            f"(limit {limit}). Wait for one to finish before starting another."
+        )
+
+
+class SystemJobLimitError(AppError):
+    """Raised when the whole system is at its in-flight job capacity.
+
+    Maps to HTTP 503 Service Unavailable.
+
+    Attributes:
+        job_type (str): The kind of job being requested (e.g. "training").
+        active (int): The current system-wide in-flight count for this scope.
+        limit (int): The maximum allowed for this scope.
+    """
+
+    def __init__(self, job_type: str, active: int, limit: int):
+        self.job_type = job_type
+        self.active = active
+        self.limit = limit
+        super().__init__(
+            f"The system is at capacity for {job_type} jobs ({active}/{limit} in progress). Please try again shortly."
         )

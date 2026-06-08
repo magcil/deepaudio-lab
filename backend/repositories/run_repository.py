@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from exceptions.exceptions import DuplicateEntityError, RepositoryError
 from models.experiment_params import ExperimentParams
-from models.run import Run
+from models.run import EvaluationStatus, Run, TrainingStatus
 
 
 def create_run_with_params(db: Session, run: Run, exp_params: ExperimentParams) -> Run:
@@ -402,3 +402,61 @@ def _coerce_enum(value: str, enum_class, field: str):
             return enum_class(value)
         except ValueError:
             raise RepositoryError(f"Invalid value '{value}' for Run field '{field}'") from None
+
+
+def _pending_and_progress(db: Session, status_col, pending_val, progress_val, owner_id: str | None):
+    """Return (pending_count, [progress run ids]) for a status column.
+
+    Pending runs are queued (not yet started) so they always count toward the
+    cap. Progress runs have started and must be liveness-checked by the caller
+    (a dead worker's run stays 'progress' until its heartbeat expires), so their
+    ids are returned for filtering rather than counted directly.
+    """
+    try:
+        pending_q = db.query(Run).filter(status_col == pending_val)
+        progress_q = db.query(Run.id).filter(status_col == progress_val)
+        if owner_id is not None:
+            pending_q = pending_q.filter(Run.created_by == owner_id)
+            progress_q = progress_q.filter(Run.created_by == owner_id)
+        return pending_q.count(), [row[0] for row in progress_q.all()]
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to count active runs") from e
+
+
+def active_trainings(db: Session, owner_id: str | None = None) -> tuple[int, list[int]]:
+    """(pending_count, progress_run_ids) for training jobs, optionally per user."""
+    return _pending_and_progress(db, Run.training_status, TrainingStatus.pending, TrainingStatus.progress, owner_id)
+
+
+def active_evaluations(db: Session, owner_id: str | None = None) -> tuple[int, list[int]]:
+    """(pending_count, progress_run_ids) for evaluation jobs, optionally per user."""
+    return _pending_and_progress(
+        db, Run.evaluation_status, EvaluationStatus.pending, EvaluationStatus.progress, owner_id
+    )
+
+
+def active_jobs(db: Session, owner_id: str | None = None) -> tuple[int, list[int]]:
+    """(pending_count, progress_run_ids) across both job types, optionally per user.
+
+    A run is counted once even if it has moved between training and evaluation;
+    progress ids are de-duplicated.
+    """
+    try:
+        pending_q = db.query(Run).filter(
+            or_(
+                Run.training_status == TrainingStatus.pending,
+                Run.evaluation_status == EvaluationStatus.pending,
+            )
+        )
+        progress_q = db.query(Run.id).filter(
+            or_(
+                Run.training_status == TrainingStatus.progress,
+                Run.evaluation_status == EvaluationStatus.progress,
+            )
+        )
+        if owner_id is not None:
+            pending_q = pending_q.filter(Run.created_by == owner_id)
+            progress_q = progress_q.filter(Run.created_by == owner_id)
+        return pending_q.count(), [row[0] for row in progress_q.all()]
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to count active jobs") from e

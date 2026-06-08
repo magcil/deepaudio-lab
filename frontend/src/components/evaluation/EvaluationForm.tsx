@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import EvalHyperparametersSection from './EvalHyperparametersSection'
 import { startEvaluation, getEvaluationOptions, getTrainRuns, type TrainRun } from '../../services/evaluationService'
 import { getDatasetSplits } from '../../services/datasetService'
+import { ApiError } from '../../api/client'
 import '../training/TrainingForm.css'
 import './EvaluationForm.css'
 
@@ -31,6 +32,7 @@ export default function EvaluationForm() {
   const [experimentError, setExperimentError] = useState(false)
   const [open, setOpen] = useState(false)
   const [started, setStarted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState<EvaluationFormData>(INITIAL_FORM)
 
   useEffect(() => {
@@ -78,12 +80,22 @@ export default function EvaluationForm() {
       gpuIndex: form.device === 'gpu' ? parseInt(form.gpuIndex) : null,
     }
 
-    const { task_id } = await startEvaluation(payload)
-    console.log('Evaluation started, task_id:', task_id)
-    setForm(INITIAL_FORM)
-    setSelectedRun(null)
-    setStarted(true)
-    setTimeout(() => setStarted(false), 8000)
+    setSubmitError(null)
+    try {
+      const { task_id } = await startEvaluation(payload)
+      console.log('Evaluation started, task_id:', task_id)
+      setForm(INITIAL_FORM)
+      setSelectedRun(null)
+      setStarted(true)
+      setTimeout(() => setStarted(false), 8000)
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 429 || err.status === 503)) {
+        // Backend returns a friendly detail message for job-limit / capacity errors.
+        setSubmitError(err.message)
+      } else {
+        setSubmitError('Could not start evaluation. Please try again.')
+      }
+    }
   }
 
   function handleSelectExperiment(run: TrainRun) {
@@ -147,6 +159,7 @@ export default function EvaluationForm() {
       <div className="form-actions">
         <button type="submit" className="btn-primary">Run Evaluation</button>
         {started && <p className="training-started-msg">Evaluation has started</p>}
+        {submitError && <p className="training-error-msg">{submitError}</p>}
       </div>
     </form>
   )
