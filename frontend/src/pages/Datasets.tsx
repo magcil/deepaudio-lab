@@ -65,13 +65,33 @@ export default function Datasets() {
     setProgress({ uploaded: 0, total: data.urls.length })
 
     const CONCURRENCY = 10
+    const MAX_ATTEMPTS = 3
+    // O(1) path -> entry lookup (avoids an O(n) scan per file).
+    const entryByPath = new Map(entries.map(e => [e.path, e]))
+    let aborted = false
+
+    // Retry a single upload a few times with exponential backoff so a transient
+    // network blip on one file doesn't fail the whole dataset.
+    const uploadWithRetry = async (url: string, file: File) => {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          await uploadFileToPresignedUrl(url, file)
+          return
+        } catch (err) {
+          if (attempt === MAX_ATTEMPTS) throw err
+          await new Promise(r => setTimeout(r, 500 * 2 ** (attempt - 1)))
+        }
+      }
+    }
+
     try {
       const queue = data.urls.slice()
       const worker = async () => {
-        while (queue.length > 0) {
+        // Stop pulling new work once any worker has failed.
+        while (queue.length > 0 && !aborted) {
           const item = queue.shift()!
-          const entry = entries.find(e => e.path === item.path)!
-          await uploadFileToPresignedUrl(item.url, entry.file)
+          const entry = entryByPath.get(item.path)!
+          await uploadWithRetry(item.url, entry.file)
           setProgress(prev => prev && { ...prev, uploaded: prev.uploaded + 1 })
         }
       }
@@ -79,6 +99,7 @@ export default function Datasets() {
       await confirmDataset(data.dataset_id, totalBytes, entries.length)
       fetchDatasets()
     } catch {
+      aborted = true
       await markDatasetError(data.dataset_id)
       setProgress(null)
       setUploadError('Upload failed. Please try again.')
