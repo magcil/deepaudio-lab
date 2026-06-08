@@ -98,12 +98,61 @@ services:
     container_name: deepaudio-worker
     restart: unless-stopped
     profiles: [app]
-    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo
+    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo --include=worker.training,worker.evaluation,worker.deployment
     # PyTorch DataLoader workers pass batches back through /dev/shm, which Docker
     # caps at 64 MB by default — independent of the VM's total RAM. With
     # num_workers > 0 this fills up and the kernel kills a worker
     # ("DataLoader worker ... killed by signal: Killed"). Raise it so batches fit.
     shm_size: '2gb'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      CELERY_BROKER_URL: redis://redis:6379/0
+
+  # Celery Beat scheduler — fires the periodic reaper (no work itself).
+  beat:
+    build:
+      context: ./backend
+      args:
+        ML_EXTRA: ""        # lean image — no torch/deepaudiox
+        RUNTIME_LIBS: ""    # no libsndfile needed
+    container_name: deepaudio-beat
+    restart: unless-stopped
+    profiles: [app]
+    command: celery -A worker.app.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      CELERY_BROKER_URL: redis://redis:6379/0
+
+  # Maintenance worker — runs reaper tasks on a dedicated queue so they never
+  # wait behind a long training job on the solo GPU worker. No GPU needed.
+  maintenance-worker:
+    build:
+      context: ./backend
+      args:
+        ML_EXTRA: ""        # lean image — no torch/deepaudiox
+        RUNTIME_LIBS: ""    # no libsndfile needed
+    container_name: deepaudio-maintenance
+    restart: unless-stopped
+    profiles: [app]
+    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo --queues=maintenance --include=worker.maintenance
     depends_on:
       db:
         condition: service_healthy

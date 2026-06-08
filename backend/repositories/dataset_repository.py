@@ -98,6 +98,23 @@ def get_by_user(db: Session, user_id: str) -> list[Dataset]:
         raise RepositoryError(f"Failed to fetch datasets for user '{user_id}'") from e
 
 
+def get_created_before(db: Session, cutoff) -> list[Dataset]:
+    """Retrieve datasets created strictly before the given cutoff datetime.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        cutoff (datetime): Timezone-aware cutoff; rows with created_at < cutoff
+            are returned.
+
+    Returns:
+        list[Dataset]: Datasets older than the cutoff (reaper candidates).
+    """
+    try:
+        return db.query(Dataset).filter(Dataset.created_at < cutoff).all()
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch datasets by age") from e
+
+
 def get_total_size_by_user(db: Session, user_id: str) -> int:
     """Return the total bytes consumed by all datasets owned by a user.
 
