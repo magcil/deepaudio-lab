@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { TrainingFormData } from './TrainingForm'
 import type { Dataset } from '../../services/datasetService'
+import type { TrainingLimits } from '../../services/trainingService'
 import { getDatasetSplits } from '../../services/datasetService'
 
 interface Props {
@@ -8,9 +9,10 @@ interface Props {
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void
   onDatasetChange: (id: number | null) => void
   datasets: Dataset[]
+  limits: TrainingLimits | null
 }
 
-export default function DataConfigSection({ values, onChange, onDatasetChange, datasets }: Props) {
+export default function DataConfigSection({ values, onChange, onDatasetChange, datasets, limits }: Props) {
   const [splits, setSplits] = useState<string[]>([])
 
   useEffect(() => {
@@ -112,13 +114,17 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
         </div>
 
         <div className="form-field">
-          <label htmlFor="segmentDuration">Segment Duration (s)</label>
+          <label htmlFor="segmentDuration">
+            Segment Duration (s)
+            {limits && <span className="field-hint">max {limits.max_segment_duration}s</span>}
+          </label>
           <input
             id="segmentDuration"
             name="segmentDuration"
             type="number"
             placeholder="e.g. 1.5"
             min={0.01}
+            max={limits?.max_segment_duration}
             step={0.01}
             value={values.segmentDuration}
             onChange={onChange}

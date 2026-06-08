@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import DatasetUpload, { type FileEntry } from '../components/dataset/DatasetUpload'
 import UploadProgress from '../components/dataset/UploadProgress'
-import { getPresignedUrls, uploadFileToPresignedUrl, confirmDataset, markDatasetError, getDatasets, deleteDataset, type Dataset } from '../services/datasetService'
+import { getPresignedUrls, uploadFileToPresignedUrl, confirmDataset, markDatasetError, getDatasets, getStorageLimits, deleteDataset, type Dataset } from '../services/datasetService'
 import { ApiError } from '../api/client'
 import './Datasets.css'
 import '../pages/Homepage.css'
@@ -18,12 +18,16 @@ export default function Datasets() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [storageLimit, setStorageLimit] = useState<number | null>(null)
 
   function fetchDatasets() {
     getDatasets().then(data => { console.log('datasets:', data); setDatasets(data) }).catch(() => {})
   }
 
-  useEffect(() => { fetchDatasets() }, [])
+  useEffect(() => {
+    fetchDatasets()
+    getStorageLimits().then(l => setStorageLimit(l.user_space_limit)).catch(() => {})
+  }, [])
 
   async function handleDelete(e: React.MouseEvent, id: number) {
     e.stopPropagation()
@@ -52,7 +56,12 @@ export default function Datasets() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) setUploadError('A dataset with that name already exists.')
-        else if (err.status === 413) setUploadError('No more space for dataset uploading.')
+        else if (err.status === 413) setUploadError(
+          storageLimit !== null
+            ? `You've reached your ${formatSize(storageLimit)} storage limit.`
+            : 'No more space for dataset uploading.'
+        )
+        else if (err.status === 507) setUploadError('The platform is currently at storage capacity. Please try again later or contact an administrator.')
         else setUploadError(err.message)
       } else {
         setUploadError('An unexpected error occurred.')
@@ -116,6 +125,7 @@ export default function Datasets() {
 
       <p className="page-summary">
         Upload Datasets for easy accesss on experiments.
+        {storageLimit !== null && ` You can store up to ${formatSize(storageLimit)} of data.`}
       </p>
 
       <DatasetUpload onFilesSelected={handleFilesSelected} />

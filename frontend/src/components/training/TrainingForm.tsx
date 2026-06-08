@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import DataConfigSection from './DataConfigSection'
 import ModelSettingsSection from './ModelSettingsSection'
 import HyperparametersSection from './HyperparametersSection'
-import { startTraining, getTrainingOptions, type TrainingOptions } from '../../services/trainingService'
+import { startTraining, getTrainingOptions, getTrainingLimits, type TrainingOptions, type TrainingLimits } from '../../services/trainingService'
 import { getDatasets, type Dataset } from '../../services/datasetService'
 import './TrainingForm.css'
 
@@ -58,6 +58,7 @@ const INITIAL_FORM: TrainingFormData = {
 
 export default function TrainingForm() {
   const [options, setOptions] = useState<TrainingOptions>({ backbones: [], poolingMethods: [], gpuIndexes: [], cudaAvailable: false, mpsAvailable: false })
+  const [limits, setLimits] = useState<TrainingLimits | null>(null)
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [started, setStarted] = useState(false)
 
@@ -68,6 +69,7 @@ export default function TrainingForm() {
         setOptions(data)
       })
       .catch(console.error)
+    getTrainingLimits().then(setLimits).catch(console.error)
     getDatasets().then(setDatasets).catch(console.error)
   }, [])
 
@@ -122,9 +124,9 @@ export default function TrainingForm() {
 
   return (
     <form className="training-form" onSubmit={handleSubmit}>
-      <DataConfigSection values={form} onChange={handleChange} onDatasetChange={handleDatasetChange} datasets={datasets} />
+      <DataConfigSection values={form} onChange={handleChange} onDatasetChange={handleDatasetChange} datasets={datasets} limits={limits} />
       <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} />
-      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} />
+      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} limits={limits} />
 
       <div className="form-actions">
         <button type="submit" className="btn-primary">Start Training</button>

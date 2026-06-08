@@ -211,5 +211,5 @@ class InsufficientStorageError(AppError):
         super().__init__(
             f"Upload of {requested:,} bytes would exceed total storage. "
             f"Used: {used:,} / {limit:,} bytes. "
-            f" Sytem has remaining: {remaining:,} bytes."
+            f"System has remaining: {remaining:,} bytes."
         )

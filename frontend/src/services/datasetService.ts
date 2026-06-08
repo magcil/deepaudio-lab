@@ -26,6 +26,14 @@ export function getDatasets(): Promise<Dataset[]> {
   return client.get<Dataset[]>('/datasets')
 }
 
+export interface StorageLimits {
+  user_space_limit: number
+}
+
+export function getStorageLimits(): Promise<StorageLimits> {
+  return client.get<StorageLimits>('/datasets/limits')
+}
+
 export function getPresignedUrls(paths: string[], totalBytes: number, datasetName: string, description: string): Promise<PresignResponse> {
   return client.post<PresignResponse>('/datasets/presigned', { dataset_name: datasetName, description, paths, total_bytes: totalBytes })
 }
