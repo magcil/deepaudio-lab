@@ -1,0 +1,24 @@
+.git/
+.gitignore
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/.ruff_cache/
+**/.python-version
+
+# Node
+**/node_modules/
+
+# Local env files (never bake secrets into images)
+**/.env
+
+# Dev-only artifacts
+testing_dataset/
+dev.ipynb
+**/.DS_Store
+**/.ipynb_checkpoints/
+
+# Deployment bundle template — has its own Dockerfile, not a running service
+deployment/

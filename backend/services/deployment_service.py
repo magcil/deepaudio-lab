@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 from exceptions.exceptions import EntityNotFoundError, InvalidStateError
 from models.run import TrainingStatus
 from repositories import run_repository
-from storage.client import ARTIFACTS_BUCKET, CHECKPOINTS_BUCKET, s3_client
+from storage.client import ARTIFACTS_BUCKET, CHECKPOINTS_BUCKET, s3_client, s3_presign_client
 
-DEPLOYMENT_DIR = Path(__file__).resolve().parents[2] / "deployment"
+# The inference-app template lives inside backend/ so it is always copied into
+# the worker image (build context is ./backend). parents[1] == backend/.
+DEPLOYMENT_DIR = Path(__file__).resolve().parents[1] / "deployment_template"
 
 # Files inside deployment/ included verbatim in every bundle (relative to DEPLOYMENT_DIR).
 _APP_FILES = [
@@ -129,7 +131,7 @@ def generate_download_url(db: Session, run_id: int, user_id: str) -> str:
     if not run.deploy_artifact_key:
         raise InvalidStateError("No deployment bundle has been built for this run.")
 
-    return s3_client.generate_presigned_url(
+    return s3_presign_client.generate_presigned_url(
         "get_object",
         Params={
             "Bucket": ARTIFACTS_BUCKET,
@@ -148,10 +150,14 @@ def _build_zip(
 ) -> io.BytesIO:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        missing = [rel for rel in _APP_FILES if not (DEPLOYMENT_DIR / rel).is_file()]
+        if missing:
+            raise FileNotFoundError(
+                f"Deployment template files missing under {DEPLOYMENT_DIR}: {missing}. "
+                "The bundle would be incomplete — aborting."
+            )
         for rel in _APP_FILES:
-            src = DEPLOYMENT_DIR / rel
-            if src.is_file():
-                zf.write(src, rel)
+            zf.write(DEPLOYMENT_DIR / rel, rel)
 
         zf.writestr("services/__init__.py", "")
 

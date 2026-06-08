@@ -11,7 +11,7 @@ def inference_on_wav(
     audio_waveform: np.ndarray,
     sample_rate: int,
 ):
-    with open(CLASS_MAPPING_PATH, "r", encoding="utf-8") as f:
+    with open(CLASS_MAPPING_PATH, encoding="utf-8") as f:
         class_mapping = json.load(f)
 
     return model.inference_on_waveform(

@@ -102,8 +102,48 @@ def create_file_to_class_mapping_from_s3(s3_prefix: str, split: str, bucket: str
     return file_to_class
 
 
+def _parse_wav_chunks(header_bytes: bytes) -> tuple[int, int, int, int, int]:
+    """Locate the fmt and data chunks in a WAV header.
+
+    Handles non-standard WAV files that insert extra chunks between fmt and
+    data (e.g. LIST, INFO, id3 written by macOS tools), which push the PCM
+    data beyond the assumed byte-44 position. Also handles odd-sized chunks
+    per the RIFF spec (each chunk is padded to an even byte boundary).
+
+    Args:
+        header_bytes: The leading bytes of the WAV file (at least 512 recommended).
+
+    Returns:
+        (sample_rate, num_channels, bits_per_sample, data_offset, data_size)
+
+    Raises:
+        ValueError: If the bytes are not a valid WAV or the data chunk is not
+            found within the supplied bytes.
+    """
+    if header_bytes[:4] != b"RIFF" or header_bytes[8:12] != b"WAVE":
+        raise ValueError("Not a valid WAV file")
+
+    # fmt chunk always begins at byte 12; read its size to skip it correctly.
+    fmt_chunk_size = struct.unpack_from("<I", header_bytes, 16)[0]
+    num_channels = struct.unpack_from("<H", header_bytes, 22)[0]
+    sample_rate = struct.unpack_from("<I", header_bytes, 24)[0]
+    bits_per_sample = struct.unpack_from("<H", header_bytes, 34)[0]
+
+    # Scan forward chunk by chunk until the data chunk is found.
+    # Add one padding byte when chunk_size is odd (RIFF even-alignment rule).
+    pos = 12 + 8 + fmt_chunk_size + (fmt_chunk_size % 2)
+    while pos + 8 <= len(header_bytes):
+        chunk_id = header_bytes[pos : pos + 4]
+        chunk_size = struct.unpack_from("<I", header_bytes, pos + 4)[0]
+        if chunk_id == b"data":
+            return sample_rate, num_channels, bits_per_sample, pos + 8, chunk_size
+        pos += 8 + chunk_size + (chunk_size % 2)
+
+    raise ValueError("Could not find 'data' chunk within the supplied header bytes")
+
+
 def get_audio_duration_from_s3(bucket: str, key: str) -> float:
-    """Get the duration of a WAV file stored in S3 by reading only its 44-byte header.
+    """Get the duration of a WAV file stored in S3 by reading only its header.
 
     Args:
         bucket: The S3 bucket where the audio file is stored.
@@ -112,14 +152,8 @@ def get_audio_duration_from_s3(bucket: str, key: str) -> float:
     Returns:
         The duration of the audio file in seconds.
     """
-    response = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=0-43")
-    header = response["Body"].read()
-
-    sample_rate = struct.unpack_from("<I", header, 24)[0]
-    bits_per_sample = struct.unpack_from("<H", header, 34)[0]
-    num_channels = struct.unpack_from("<H", header, 22)[0]
-    data_size = struct.unpack_from("<I", header, 40)[0]
-
+    header = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=0-511")["Body"].read()
+    sample_rate, num_channels, bits_per_sample, _, data_size = _parse_wav_chunks(header)
     num_samples = data_size // (num_channels * (bits_per_sample // 8))
     return num_samples / sample_rate
 
@@ -134,9 +168,9 @@ def load_audio_from_s3(
     """Load audio from S3, downloading only the requested segment.
 
     For unsegmented loads (offset=0, duration=None) the full file is fetched
-    in a single request. For segmented loads, the WAV header is read first
-    (44 bytes) to derive byte offsets, then only the needed PCM bytes are
-    fetched in a second request — avoiding a full file download per segment.
+    in a single request. For segmented loads, the WAV header is parsed to
+    locate the PCM data chunk, then only the needed bytes are fetched in a
+    second request — avoiding a full file download per segment.
 
     Args:
         bucket: S3 bucket where the file is stored.
@@ -154,14 +188,11 @@ def load_audio_from_s3(
         y, _ = librosa.load(io.BytesIO(response["Body"].read()), sr=sample_rate, mono=True)
         return y
 
-    # Read WAV header to derive byte positions
-    header = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=0-43")["Body"].read()
-    orig_sr = struct.unpack_from("<I", header, 24)[0]
-    num_channels = struct.unpack_from("<H", header, 22)[0]
-    bits_per_sample = struct.unpack_from("<H", header, 34)[0]
+    header = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=0-511")["Body"].read()
+    orig_sr, num_channels, bits_per_sample, data_offset, _ = _parse_wav_chunks(header)
     bytes_per_frame = num_channels * (bits_per_sample // 8)
 
-    start_byte = 44 + int(offset * orig_sr) * bytes_per_frame
+    start_byte = data_offset + int(offset * orig_sr) * bytes_per_frame
     end_byte = start_byte + int(duration * orig_sr) * bytes_per_frame - 1 if duration is not None else ""
     audio_data = s3_client.get_object(Bucket=bucket, Key=key, Range=f"bytes={start_byte}-{end_byte}")["Body"].read()
     data_size = len(audio_data)

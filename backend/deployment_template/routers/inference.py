@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import soundfile as sf
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -26,7 +26,7 @@ async def inference(
     model=Depends(get_model),
     path: UploadFile = File(...),
     segment_duration: float = Form(DEFAULT_SEGMENT_DURATION),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     suffix = Path(path.filename or "").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(

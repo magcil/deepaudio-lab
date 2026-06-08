@@ -1,0 +1,138 @@
+name: deepaudio-lab
+
+services:
+
+  # ── Infrastructure (always up) ────────────────────────────────────────────
+
+  db:
+    image: postgres:16
+    container_name: deepaudio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: deepaudio-seaweedfs
+    restart: unless-stopped
+    ports:
+      - "9333:9333"
+      - "23646:23646"
+      - "8888:8888"
+      - "8333:8333"
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET: raw-audios, checkpoints, artifacts
+    volumes:
+      - seaweedfs_data:/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: deepaudio-keycloak
+    command: start-dev --health-enabled=true --import-realm
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  redis:
+    image: redis:7-alpine
+    container_name: deepaudio-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Application (docker compose --profile app up) ─────────────────────────
+
+  backend:
+    build:
+      context: ./backend
+    container_name: deepaudio-backend
+    restart: unless-stopped
+    profiles: [app]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:8333}
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      CELERY_BROKER_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: ./backend
+    container_name: deepaudio-worker
+    restart: unless-stopped
+    profiles: [app]
+    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo
+    # PyTorch DataLoader workers pass batches back through /dev/shm, which Docker
+    # caps at 64 MB by default — independent of the VM's total RAM. With
+    # num_workers > 0 this fills up and the kernel kills a worker
+    # ("DataLoader worker ... killed by signal: Killed"). Raise it so batches fit.
+    shm_size: '2gb'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      CELERY_BROKER_URL: redis://redis:6379/0
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: deepaudio-frontend
+    restart: unless-stopped
+    profiles: [app]
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:
+  seaweedfs_data:
+  keycloak_data:
