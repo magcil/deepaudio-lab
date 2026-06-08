@@ -7,6 +7,7 @@ from db.session import SessionLocal
 from models.classification_report import ClassificationReport
 from repositories import classification_report_repository
 from services.evaluation_service import EvaluationService
+from services.heartbeat import heartbeat
 from worker.app import celery_app
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -27,7 +28,10 @@ def run_evaluation(self, run_id: int, exp_params: dict, user_id: str):
         )
 
     service = EvaluationService()
-    report = service.perform_evaluation(run_id, exp_params, user_id=user_id, progress_callback=progress_callback)
+    # Emit a liveness heartbeat for the duration of the evaluation so concurrency
+    # caps can distinguish a live job from one whose worker died.
+    with heartbeat(run_id):
+        report = service.perform_evaluation(run_id, exp_params, user_id=user_id, progress_callback=progress_callback)
 
     if report is None:
         return {"status": "failed"}

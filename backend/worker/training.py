@@ -4,6 +4,7 @@ from pathlib import Path
 
 import models  # noqa: F401 — registers all SQLAlchemy models in this process
 from schemas.train_params import TrainParams
+from services.heartbeat import heartbeat
 from services.training_service import TrainingService
 from worker.app import celery_app
 
@@ -35,9 +36,16 @@ def run_training(self, params: dict, class_mapping: dict, run_id: int, user_id: 
 
     service = TrainingService()
     try:
-        service.perform_training(
-            TrainParams(**params), class_mapping, run_id=run_id, user_id=user_id, progress_callback=progress_callback
-        )
+        # Emit a liveness heartbeat for the whole run so concurrency caps can tell
+        # a live job from one whose worker died. Cleared automatically on exit.
+        with heartbeat(run_id):
+            service.perform_training(
+                TrainParams(**params),
+                class_mapping,
+                run_id=run_id,
+                user_id=user_id,
+                progress_callback=progress_callback,
+            )
     except Exception as exc:
         # Some exceptions (e.g. botocore's dynamically-generated NoSuchKey) cannot be
         # pickled, which prevents Celery from storing FAILURE state in Redis and leaves

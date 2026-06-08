@@ -14,7 +14,7 @@ from db.session import get_db
 from repositories import run_repository
 from schemas.train_params import TrainingOptionsResponse, TrainParams
 from schemas.user_info import UserInfo
-from services import run_service
+from services import concurrency_service, limit_service, run_service
 from worker.app import celery_app
 from worker.training import run_training
 
@@ -39,6 +39,9 @@ def train(params: TrainParams, db: Session = Depends(get_db), user: UserInfo = D
         dict: Acknowledgement payload with the run status, the assigned
         run name, and the persisted training parameters.
     """
+    # Admission control: reject (429/503) if the user or system is at its job cap.
+    concurrency_service.check_can_start_training(db, user.sub)
+
     run_detail = run_service.register_train(db, params, owner_id=user.sub)
     run_id = run_detail["id"]
     class_mapping = run_detail["exp_params"]["class_mapping"]
@@ -107,3 +110,8 @@ async def get_progress(task_id: str, db: Session = Depends(get_db), user: UserIn
             await asyncio.sleep(2)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.get("/limits", status_code=status.HTTP_200_OK)
+def get_training_limits(_: UserInfo = Depends(get_current_user)):
+    return limit_service.get_current_limits()

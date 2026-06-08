@@ -10,9 +10,15 @@ from schemas.dataset_params import (
     DatasetUploadResponse,
 )
 from schemas.user_info import UserInfo
-from services import dataset_service
+from services import dataset_service, limit_service
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
+
+
+@router.get("/limits", status_code=status.HTTP_200_OK)
+def get_storage_limits(_: UserInfo = Depends(get_current_user)):
+    """Return storage limits relevant to the user (e.g. per-user upload quota)."""
+    return limit_service.get_storage_limits()
 
 
 @router.post(

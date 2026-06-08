@@ -1,4 +1,5 @@
 import type { TrainingFormData } from './TrainingForm'
+import type { TrainingLimits } from '../../services/trainingService'
 
 interface Props {
   values: Pick<TrainingFormData, 'epochs' | 'patience' | 'learningRate' | 'workers' | 'batchSize' | 'device' | 'gpuIndex'>
@@ -7,9 +8,10 @@ interface Props {
   gpuIndexes: number[]
   cudaAvailable: boolean
   mpsAvailable: boolean
+  limits: TrainingLimits | null
 }
 
-export default function HyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable }: Props) {
+export default function HyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable, limits }: Props) {
   const deviceUnavailableMessage =
     values.device === 'gpu' && !cudaAvailable
       ? 'No CUDA GPU detected on this machine. Training will fall back to CPU.'
@@ -23,13 +25,17 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
 
       <div className="form-row">
         <div className="form-field">
-          <label htmlFor="epochs">Epochs</label>
+          <label htmlFor="epochs">
+            Epochs
+            {limits && <span className="field-hint">max {limits.max_epochs}</span>}
+          </label>
           <input
             id="epochs"
             name="epochs"
             type="number"
             placeholder="e.g. 100"
             min={1}
+            max={limits?.max_epochs}
             step={1}
             value={values.epochs}
             onChange={onChange}
@@ -70,13 +76,17 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
         </div>
 
         <div className="form-field">
-          <label htmlFor="batchSize">Batch Size</label>
+          <label htmlFor="batchSize">
+            Batch Size
+            {limits && <span className="field-hint">max {limits.max_batch_size}</span>}
+          </label>
           <input
             id="batchSize"
             name="batchSize"
             type="number"
             placeholder="e.g. 32"
             min={1}
+            max={limits?.max_batch_size}
             step={1}
             value={values.batchSize}
             onChange={onChange}
@@ -87,14 +97,17 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
 
       <div className="form-row">
         <div className="form-field">
-          <label htmlFor="workers">Workers</label>
+          <label htmlFor="workers">
+            Workers
+            {limits && <span className="field-hint">max {limits.max_num_workers}</span>}
+          </label>
           <input
             id="workers"
             name="workers"
             type="number"
-            placeholder="1 – 8"
+            placeholder={limits ? `1 – ${limits.max_num_workers}` : '1'}
             min={1}
-            max={8}
+            max={limits?.max_num_workers}
             step={1}
             value={values.workers}
             onChange={onChange}

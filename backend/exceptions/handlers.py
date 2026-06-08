@@ -8,12 +8,16 @@ from fastapi.responses import JSONResponse
 from exceptions.exceptions import (
     DuplicateEntityError,
     EntityNotFoundError,
+    InsufficientStorageError,
     InvalidResourceError,
     InvalidStateError,
     QuotaExceededError,
     ReferencedEntityNotFoundError,
     ResourceNotFoundError,
+    SystemJobLimitError,
     UnauthorizedError,
+    UnprocessableEntityError,
+    UserJobLimitError,
 )
 
 
@@ -46,6 +50,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def invalid_resource(request: Request, exc: InvalidResourceError):
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
+    @app.exception_handler(UnprocessableEntityError)
+    async def unprocessable_entity(request: Request, exc: UnprocessableEntityError):
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
     @app.exception_handler(UnauthorizedError)
     async def unauthorized(request: Request, exc: UnauthorizedError):
         return JSONResponse(status_code=403, content={"detail": str(exc)})
@@ -53,6 +61,18 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(QuotaExceededError)
     async def quota_exceeded(request: Request, exc: QuotaExceededError):
         return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+    @app.exception_handler(InsufficientStorageError)
+    async def insufficient_storage(request: Request, exc: InsufficientStorageError):
+        return JSONResponse(status_code=507, content={"detail": str(exc)})
+
+    @app.exception_handler(UserJobLimitError)
+    async def user_job_limit(request: Request, exc: UserJobLimitError):
+        return JSONResponse(status_code=429, content={"detail": str(exc)})
+
+    @app.exception_handler(SystemJobLimitError)
+    async def system_job_limit(request: Request, exc: SystemJobLimitError):
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @app.exception_handler(InvalidStateError)
     async def invalid_state(request: Request, exc: InvalidStateError):

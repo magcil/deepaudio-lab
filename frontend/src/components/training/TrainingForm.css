@@ -52,6 +52,16 @@
   border-radius: 4px;
 }
 
+.field-hint {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  color: #5a7a9e;
+  background: rgba(90, 122, 158, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 .form-field input,
 .form-field textarea {
   background: rgba(255, 255, 255, 0.04);
@@ -171,4 +181,10 @@
   margin: 12px 0 0;
   font-size: 13px;
   color: #6fcf97;
+}
+
+.training-error-msg {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #eb5757;
 }

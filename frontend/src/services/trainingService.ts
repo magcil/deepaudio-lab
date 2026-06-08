@@ -62,3 +62,15 @@ export interface TrainingOptions {
 /** Fetches available training configuration options from the backend. */
 export const getTrainingOptions = (): Promise<TrainingOptions> =>
   client.get<TrainingOptions>('/train/options');
+
+/** Server-enforced ceilings for training hyperparameters (snake_case from the API). */
+export interface TrainingLimits {
+  max_segment_duration: number;
+  max_epochs: number;
+  max_batch_size: number;
+  max_num_workers: number;
+}
+
+/** Fetches the current training hyperparameter limits from the backend. */
+export const getTrainingLimits = (): Promise<TrainingLimits> =>
+  client.get<TrainingLimits>('/train/limits');
