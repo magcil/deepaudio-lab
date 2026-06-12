@@ -108,7 +108,7 @@ def report_error(dataset_id: int, db: Session = Depends(get_db), _: UserInfo = D
 
 
 @router.get(
-    "/",
+    "",
     status_code=status.HTTP_200_OK,
     response_model=list[DatasetResponse],
 )
