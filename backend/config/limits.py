@@ -43,3 +43,13 @@ MAX_SYSTEM_JOBS = int(os.getenv("MAX_SYSTEM_JOBS", "4"))
 # missed beats) so a slow-but-alive job is never treated as dead.
 HEARTBEAT_INTERVAL_SECONDS = int(os.getenv("HEARTBEAT_INTERVAL_SECONDS", "30"))
 JOB_HEARTBEAT_TTL_SECONDS = int(os.getenv("JOB_HEARTBEAT_TTL_SECONDS", "180"))
+
+# Reaper (maintenance worker via Celery Beat):
+# - REAPER_INTERVAL_SECONDS: how often the reaper runs.
+# - DATASET_RETENTION_ENABLED: master switch for dataset auto-deletion. Off by
+#   default because it deletes real user data; the stale-process reaper always runs.
+# - DATASET_RETENTION_SECONDS: when enabled, datasets older than this that are NOT
+#   in use by an active job are deleted (S3 + DB). Default 30 days.
+REAPER_INTERVAL_SECONDS = int(os.getenv("REAPER_INTERVAL_SECONDS", "300"))
+DATASET_RETENTION_ENABLED = os.getenv("DATASET_RETENTION_ENABLED", "false").lower() in ("1", "true", "yes")
+DATASET_RETENTION_SECONDS = int(os.getenv("DATASET_RETENTION_SECONDS", "2592000"))

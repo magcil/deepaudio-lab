@@ -1,13 +1,29 @@
-from deepaudiox.modules.pooling import POOLING
-from deepaudiox.schemas.types import BackboneName
+from functools import lru_cache
+
 from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship, validates
 
 from db.session import Base
 
-# Dynamically built enum of supported by backbone and pooling names, sourced from DeepAudioX
-VALID_BACKBONES: frozenset[str] = frozenset(BackboneName.__args__)
-VALID_POOLINGS: frozenset[str] = frozenset(POOLING.keys())
+
+# Supported backbone/pooling names are sourced from DeepAudioX. They are imported
+# LAZILY (inside these cached accessors) rather than at module load, so merely
+# importing this model does not pull in deepaudiox — and therefore torch. The
+# validators below only run when an attribute is assigned (in the API/training
+# worker, which have deepaudiox); loading a row from the DB never triggers them,
+# so the lean maintenance worker can import this model without deepaudiox.
+@lru_cache(maxsize=1)
+def _valid_backbones() -> frozenset[str]:
+    from deepaudiox.schemas.types import BackboneName
+
+    return frozenset(BackboneName.__args__)
+
+
+@lru_cache(maxsize=1)
+def _valid_poolings() -> frozenset[str]:
+    from deepaudiox.modules.pooling import POOLING
+
+    return frozenset(POOLING.keys())
 
 
 class ExperimentParams(Base):
@@ -95,8 +111,9 @@ class ExperimentParams(Base):
         Returns:
             str: Validated backbone name.
         """
-        if value not in VALID_BACKBONES:
-            raise ValueError(f"Invalid backbone '{value}'. Must be one of: {sorted(VALID_BACKBONES)}")
+        valid = _valid_backbones()
+        if value not in valid:
+            raise ValueError(f"Invalid backbone '{value}'. Must be one of: {sorted(valid)}")
         return value
 
     @validates("pooling")
@@ -116,6 +133,7 @@ class ExperimentParams(Base):
         Returns:
             str: Validated pooling method.
         """
-        if value not in VALID_POOLINGS:
-            raise ValueError(f"Invalid pooling '{value}'. Must be one of: {sorted(VALID_POOLINGS)}")
+        valid = _valid_poolings()
+        if value not in valid:
+            raise ValueError(f"Invalid pooling '{value}'. Must be one of: {sorted(valid)}")
         return value

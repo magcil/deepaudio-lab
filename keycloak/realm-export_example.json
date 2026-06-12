@@ -10,11 +10,19 @@
   "ssoSessionMaxLifespan": 36000,
   "roles": {
     "realm": [
-      { "name": "regular", "description": "Standard application user" },
-      { "name": "admin",   "description": "Application administrator" }
+      {
+        "name": "regular",
+        "description": "Standard application user"
+      },
+      {
+        "name": "admin",
+        "description": "Application administrator"
+      }
     ]
   },
-  "defaultRoles": ["regular"],
+  "defaultRoles": [
+    "regular"
+  ],
   "clients": [
     {
       "clientId": "deepaudiolab",
@@ -24,10 +32,16 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"],
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "<public_url>/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "<public_url>"
+      ],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:5173/*"
+        "post.logout.redirect.uris": "http://localhost:5173/*##<public_url>/*"
       }
     },
     {
@@ -35,7 +49,7 @@
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
-      "secret": "dev-secret",
+      "secret": "your-secret-here",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
@@ -50,7 +64,9 @@
       "enabled": true,
       "serviceAccountClientId": "deepaudiolab-backend",
       "clientRoles": {
-        "realm-management": ["realm-admin"]
+        "realm-management": [
+          "realm-admin"
+        ]
       }
     }
   ]

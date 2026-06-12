@@ -4,6 +4,7 @@ import os
 from celery import Celery
 
 import models.user  # noqa: F401 — registers User with SQLAlchemy mapper before Run is loaded
+from config.limits import REAPER_INTERVAL_SECONDS
 
 # Force the "spawn" start method for child processes (e.g. PyTorch DataLoader
 # workers). On Linux the default is "fork", which clones the entire parent
@@ -24,7 +25,13 @@ celery_app = Celery(
     "deepaudio",
     broker=_broker,
     backend=_broker,
-    include=["worker.training", "worker.evaluation", "worker.deployment"],
+    # NOTE: task modules are intentionally NOT listed here. Each worker imports
+    # only the tasks it needs via --include on its command line, so the lean
+    # maintenance worker (and beat) never import the torch-heavy training tasks:
+    #   GPU worker:  --include=worker.training,worker.evaluation,worker.deployment
+    #   maintenance: --include=worker.maintenance
+    # The API enqueues tasks by importing the functions directly, so dispatch is
+    # unaffected by this.
 )
 
 celery_app.conf.update(
@@ -32,4 +39,14 @@ celery_app.conf.update(
     task_track_progress=True,
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=1,
+    # Maintenance tasks run on their own queue so they never wait behind a
+    # long-running training job on the solo GPU worker.
+    task_routes={"worker.maintenance.*": {"queue": "maintenance"}},
+    # Celery Beat fires the reaper on a fixed interval.
+    beat_schedule={
+        "reaper": {
+            "task": "worker.maintenance.run_reaper",
+            "schedule": float(REAPER_INTERVAL_SECONDS),
+        },
+    },
 )

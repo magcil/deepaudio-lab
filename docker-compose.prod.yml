@@ -105,7 +105,7 @@ services:
       context: ./backend
     container_name: deepaudio-worker
     restart: unless-stopped
-    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo
+    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo --include=worker.training,worker.evaluation,worker.deployment
     # PyTorch DataLoader workers pass batches through /dev/shm (Docker default
     # 64 MB); raise it so num_workers > 0 doesn't overflow and get SIGKILLed.
     shm_size: '2gb'
@@ -132,6 +132,59 @@ services:
       resources:
         limits:
           memory: 8g
+
+  # Celery Beat scheduler — fires the periodic reaper.
+  beat:
+    build:
+      context: ./backend
+      args:
+        ML_EXTRA: ""        # lean image — no torch/deepaudiox
+        RUNTIME_LIBS: ""    # no libsndfile needed
+    container_name: deepaudio-beat
+    restart: unless-stopped
+    command: celery -A worker.app.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      CELERY_BROKER_URL: redis://redis:6379/0
+
+  # Maintenance worker — reaper tasks on a dedicated queue (no GPU needed).
+  maintenance-worker:
+    build:
+      context: ./backend
+      args:
+        ML_EXTRA: ""        # lean image — no torch/deepaudiox
+        RUNTIME_LIBS: ""    # no libsndfile needed
+    container_name: deepaudio-maintenance
+    restart: unless-stopped
+    command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo --queues=maintenance --include=worker.maintenance
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      S3_API: http://seaweedfs:8333
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      DATA_BUCKET: ${DATA_BUCKET:-raw-audios}
+      CHECKPOINTS_BUCKET: ${CHECKPOINTS_BUCKET:-checkpoints}
+      ARTIFACTS_BUCKET: ${ARTIFACTS_BUCKET:-artifacts}
+      CELERY_BROKER_URL: redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
   # ── Infrastructure (internal network only — NO published host ports) ──────
   db:

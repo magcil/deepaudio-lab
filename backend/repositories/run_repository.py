@@ -460,3 +460,70 @@ def active_jobs(db: Session, owner_id: str | None = None) -> tuple[int, list[int
         return pending_q.count(), [row[0] for row in progress_q.all()]
     except SQLAlchemyError as e:
         raise RepositoryError("Failed to count active jobs") from e
+
+
+def progress_run_ids(db: Session) -> list[int]:
+    """Return ids of all runs currently in the 'progress' (running) state for
+    either training or evaluation. Used by the reaper to find candidates whose
+    liveness must be checked against the heartbeat."""
+    try:
+        rows = (
+            db.query(Run.id)
+            .filter(
+                or_(
+                    Run.training_status == TrainingStatus.progress,
+                    Run.evaluation_status == EvaluationStatus.progress,
+                )
+            )
+            .all()
+        )
+        return [row[0] for row in rows]
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch in-progress run ids") from e
+
+
+def fail_if_progress(db: Session, run_id: int) -> bool:
+    """Flip any 'progress' status on a run to 'failure'. Returns True if changed.
+
+    Called by the reaper for runs whose heartbeat has expired (worker died), so
+    they no longer display as running. Both training and evaluation statuses are
+    checked independently.
+    """
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is None:
+            return False
+        changed = False
+        if run.training_status == TrainingStatus.progress:
+            run.training_status = TrainingStatus.failure
+            changed = True
+        if run.evaluation_status == EvaluationStatus.progress:
+            run.evaluation_status = EvaluationStatus.failure
+            changed = True
+        if changed:
+            db.commit()
+        return changed
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RepositoryError(f"Failed to fail stale run '{run_id}'") from e
+
+
+def active_dataset_ids(db: Session) -> set[int]:
+    """Return the set of dataset ids referenced by any active (pending/progress)
+    run, via ExperimentParams. Used by the reaper to avoid deleting a dataset
+    that a queued or running job still needs."""
+    try:
+        rows = (
+            db.query(ExperimentParams.dataset_id)
+            .join(Run, Run.id == ExperimentParams.run_id)
+            .filter(
+                or_(
+                    Run.training_status.in_((TrainingStatus.pending, TrainingStatus.progress)),
+                    Run.evaluation_status.in_((EvaluationStatus.pending, EvaluationStatus.progress)),
+                )
+            )
+            .all()
+        )
+        return {row[0] for row in rows}
+    except SQLAlchemyError as e:
+        raise RepositoryError("Failed to fetch active dataset ids") from e
