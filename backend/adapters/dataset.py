@@ -99,7 +99,7 @@ class S3AudioClassificationDataset(Dataset):
 
         offset = item.segment_idx * self.segment_duration if self.segment_duration else 0.0
 
-        item.feature = load_audio_from_s3(
+        feature = load_audio_from_s3(
             bucket=DATA_BUCKET,
             key=str(item.path),
             sample_rate=self.sample_rate,
@@ -107,7 +107,13 @@ class S3AudioClassificationDataset(Dataset):
             duration=self.segment_duration,
         )
 
-        return item.to_dict()
+        return {
+                    "path": str(item.path),
+                    "y_true": item.y_true,
+                    "class_name": item.class_name,
+                    "segment_idx": item.segment_idx,
+                    "feature": feature
+                }
 
     def _apply_segmentation(self, segment_duration: float):
         """

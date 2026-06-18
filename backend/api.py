@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,9 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
 from routers import auth, datasets, deployment, evaluation, run, tasks, training
+from storage.client import ensure_buckets
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs once before uvicorn accepts requests; raises (and the container
+    # restarts) if storage never comes up, since the API is useless without it.
+    ensure_buckets()
+    yield
+
 
 # Instantiate api
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 register_exception_handlers(app)
 
 # Init database

@@ -41,6 +41,6 @@ class S3AudioClassifier(AudioClassifier):
                 "instance was used. Instantiate the model manually and call "
                 "model.load_state_dict(ckpt['state_dict'])."
             )
-        model = cls(**ckpt["config"])
+        model = cls(**{**ckpt["config"], "pretrained": False})
         model.load_state_dict(ckpt["state_dict"])
         return model

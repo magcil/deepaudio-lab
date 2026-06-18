@@ -36,9 +36,9 @@ celery_app = Celery(
 
 celery_app.conf.update(
     task_track_started=True,
-    task_track_progress=True,
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=1,
+    broker_transport_options={"visibility_timeout": 86400}, # 24 hours window for assuming the worker died by redis
     # Maintenance tasks run on their own queue so they never wait behind a
     # long-running training job on the solo GPU worker.
     task_routes={"worker.maintenance.*": {"queue": "maintenance"}},
