@@ -108,12 +108,12 @@ class S3AudioClassificationDataset(Dataset):
         )
 
         return {
-                    "path": str(item.path),
-                    "y_true": item.y_true,
-                    "class_name": item.class_name,
-                    "segment_idx": item.segment_idx,
-                    "feature": feature
-                }
+            "path": str(item.path),
+            "y_true": item.y_true,
+            "class_name": item.class_name,
+            "segment_idx": item.segment_idx,
+            "feature": feature,
+        }
 
     def _apply_segmentation(self, segment_duration: float):
         """
