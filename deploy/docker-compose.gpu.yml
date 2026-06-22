@@ -1,0 +1,32 @@
+# GPU overlay: gives NVIDIA GPU access to the services that need it. Requires
+# nvidia-container-toolkit on the host. Composes onto any environment:
+#   local:  make up-gpu
+#   prod:   make prod-gpu
+# or explicitly:
+#   docker compose --project-directory . \
+#     -f deploy/docker-compose.base.yml -f deploy/docker-compose.local.yml \
+#     -f deploy/docker-compose.gpu.yml --env-file deploy/env/local.env --profile app up -d
+
+services:
+
+  # GPU VISIBILITY only — /train/options & /evaluate/options report
+  # cuda_available via torch.cuda.is_available(). Training itself runs on the
+  # worker; the backend just needs to see the device to report it.
+  backend:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # The training worker — actually runs the model on the GPU.
+  worker:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

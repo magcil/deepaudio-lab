@@ -1,0 +1,36 @@
+# Dev-server overlay: like local, but publishes ports bound to all interfaces so
+# the app is reachable from other machines on the dev network. Host-facing URLs
+# (S3_PUBLIC_URL, VITE_API_URL, KEYCLOAK_SERVER_URL) come from deploy/env/dev.env.
+# Invoke from the repo root:
+#   docker compose --project-directory . \
+#     -f deploy/docker-compose.base.yml -f deploy/docker-compose.dev.yml \
+#     --env-file deploy/env/dev.env --profile app up -d
+
+services:
+
+  db:
+    ports:
+      - "5432:5432"
+
+  seaweedfs:
+    ports:
+      - "9333:9333"
+      - "23646:23646"
+      - "8888:8888"
+      - "8333:8333"
+
+  keycloak:
+    ports:
+      - "8080:8080"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "8000:8000"
+
+  frontend:
+    ports:
+      - "5173:80"

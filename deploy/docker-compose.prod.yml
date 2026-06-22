@@ -1,42 +1,74 @@
 name: deepaudio-lab-prod
 
-# Standalone PRODUCTION compose. Single public entry point is the `edge` nginx
-# reverse proxy (ports 80/443). No other service publishes a host port — they
-# communicate over the internal Docker network only.
+# Standalone single-server PRODUCTION compose (NOT a base+overlay). The only
+# public service is the `edge` nginx reverse proxy (80/443); everything else
+# stays on the internal Docker network. This file is GPU-agnostic; add the GPU
+# overlay (deploy/docker-compose.gpu.yml, i.e. `make prod-gpu`) on a GPU host.
 #
-# Run with:
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-# For GPU training, add the override:
-#   docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml --env-file .env.prod up -d --build
+# Invoke from the repo root with --project-directory . so relative paths resolve:
 #
-# Required env vars (put them in .env.prod): DOMAIN, POSTGRES_USER,
-# POSTGRES_PASSWORD, POSTGRES_DB, KC_DB_PASSWORD, KEYCLOAK_ADMIN,
-# KEYCLOAK_ADMIN_PASSWORD, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID,
-# KEYCLOAK_CLIENT_SECRET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.
+# Bootstrap (first deploy — TLS certs don't exist yet):
+#   1. mkdir -p deploy/nginx/certs certbot/www
+#   2. Throwaway self-signed cert so nginx can start and serve the ACME challenge:
+#        openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+#          -keyout deploy/nginx/certs/privkey.pem \
+#          -out deploy/nginx/certs/fullchain.pem -subj "/CN=placeholder"
+#   3. Bring up edge only:
+#        docker compose --project-directory . -f deploy/docker-compose.prod.yml \
+#          --env-file deploy/env/prod.env up -d edge
+#   4. Obtain the real cert, then copy it where nginx reads it:
+#        docker compose --project-directory . -f deploy/docker-compose.prod.yml \
+#          --env-file deploy/env/prod.env run --rm certbot
+#        cp certbot/conf/live/${DOMAIN}/fullchain.pem deploy/nginx/certs/
+#        cp certbot/conf/live/${DOMAIN}/privkey.pem  deploy/nginx/certs/
+#   5. Full stack:
+#        docker compose --project-directory . -f deploy/docker-compose.prod.yml \
+#          --env-file deploy/env/prod.env up -d --build
+#
+# Cert renewal (cron): `... run --rm certbot renew`, copy certs (step 4), then
+# `... restart edge`.
+#
+# Required env vars: see deploy/env/prod.env.example. The SeaweedFS S3 identity
+# keys in deploy/seaweedfs/s3.json must match AWS_ACCESS_KEY_ID/SECRET there.
 
 services:
 
-  # ── Edge reverse proxy / load balancer (the ONLY public service) ──────────
+  # ── Edge reverse proxy (only service with public ports) ───────────────────
   edge:
     image: nginx:1.27-alpine
     container_name: deepaudio-edge
     restart: unless-stopped
     environment:
-      DOMAIN: ${DOMAIN}                       # e.g. deepaudio.example.com
+      DOMAIN: ${DOMAIN}
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      # Mounted into the templates dir so the image's envsubst fills ${DOMAIN}.
       - ./deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
-      # Provide fullchain.pem + privkey.pem covering DOMAIN, auth.DOMAIN, storage.DOMAIN
-      # (a SAN or wildcard *.DOMAIN cert). Use certbot/Let's Encrypt to obtain them.
       - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - ./certbot/www:/var/www/certbot:ro   # ACME HTTP-01 challenge files
     depends_on:
       - frontend
       - backend
       - keycloak
       - seaweedfs
+
+  # ── Certbot — run once to obtain certs, then for renewals (webroot) ───────
+  certbot:
+    image: certbot/certbot
+    container_name: deepaudio-certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    command: >-
+      certonly --webroot
+      --webroot-path=/var/www/certbot
+      --email ${CERTBOT_EMAIL}
+      --agree-tos
+      --no-eff-email
+      -d ${DOMAIN}
+      -d auth.${DOMAIN}
+      -d storage.${DOMAIN}
 
   # ── Application ───────────────────────────────────────────────────────────
   frontend:
@@ -44,19 +76,22 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: https://${DOMAIN}/api
-        # NOTE: frontend/Dockerfile currently only declares VITE_API_URL as an
-        # ARG. These three are ignored until you add matching ARG/ENV lines to
-        # that Dockerfile — otherwise the build falls back to localhost defaults
-        # and Keycloak login will break in production.
         VITE_KEYCLOAK_URL: https://auth.${DOMAIN}
         VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM}
-        VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+        # PUBLIC frontend client — NOT ${KEYCLOAK_CLIENT_ID} (that's the
+        # confidential backend client).
+        VITE_KEYCLOAK_CLIENT_ID: deepaudiolab
     container_name: deepaudio-frontend
     restart: unless-stopped
     expose:
       - "80"
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
 
   backend:
     build:
@@ -84,11 +119,28 @@ services:
       DATA_BUCKET: ${DATA_BUCKET:-raw-audios}
       CHECKPOINTS_BUCKET: ${CHECKPOINTS_BUCKET:-checkpoints}
       ARTIFACTS_BUCKET: ${ARTIFACTS_BUCKET:-artifacts}
+      # This file has no env_file, so EVERY tunable must be forwarded explicitly
+      # or it falls back to the code default and .env.prod can't control it.
       USER_SPACE_LIMIT: ${USER_SPACE_LIMIT:-10737418240}
+      TOTAL_STORAGE_LIMIT: ${TOTAL_STORAGE_LIMIT:-107374182400}
+      MAX_SEGMENT_DURATION: ${MAX_SEGMENT_DURATION:-10.0}
+      MAX_EPOCHS: ${MAX_EPOCHS:-100}
+      MAX_BATCH_SIZE: ${MAX_BATCH_SIZE:-128}
+      MAX_NUM_WORKERS: ${MAX_NUM_WORKERS:-4}
+      MAX_USER_TRAININGS: ${MAX_USER_TRAININGS:-1}
+      MAX_SYSTEM_TRAININGS: ${MAX_SYSTEM_TRAININGS:-4}
+      MAX_USER_EVALUATIONS: ${MAX_USER_EVALUATIONS:-2}
+      MAX_SYSTEM_EVALUATIONS: ${MAX_SYSTEM_EVALUATIONS:-4}
+      MAX_USER_JOBS: ${MAX_USER_JOBS:-2}
+      MAX_SYSTEM_JOBS: ${MAX_SYSTEM_JOBS:-4}
+      HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL_SECONDS:-30}
+      JOB_HEARTBEAT_TTL_SECONDS: ${JOB_HEARTBEAT_TTL_SECONDS:-180}
+      REAPER_INTERVAL_SECONDS: ${REAPER_INTERVAL_SECONDS:-300}
+      DATASET_RETENTION_ENABLED: ${DATASET_RETENTION_ENABLED:-false}
+      DATASET_RETENTION_SECONDS: ${DATASET_RETENTION_SECONDS:-2592000}
       CELERY_BROKER_URL: redis://redis:6379/0
-      # Browser-obtained JWTs carry the PUBLIC issuer (KC_HOSTNAME). The backend
-      # must validate against that same issuer URL. extra_hosts (below) lets the
-      # backend resolve it internally to the edge proxy instead of the internet.
+      # Browser JWTs carry the PUBLIC issuer (KC_HOSTNAME); the backend validates
+      # against the same URL. extra_hosts resolves it internally via the edge.
       KEYCLOAK_SERVER_URL: https://auth.${DOMAIN}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
@@ -98,7 +150,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2g
+          memory: 8g
+          cpus: "8"
 
   worker:
     build:
@@ -106,8 +159,6 @@ services:
     container_name: deepaudio-worker
     restart: unless-stopped
     command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo --include=worker.training,worker.evaluation,worker.deployment
-    # PyTorch DataLoader workers pass batches through /dev/shm (Docker default
-    # 64 MB); raise it so num_workers > 0 doesn't overflow and get SIGKILLed.
     shm_size: '2gb'
     depends_on:
       db:
@@ -126,20 +177,24 @@ services:
       DATA_BUCKET: ${DATA_BUCKET:-raw-audios}
       CHECKPOINTS_BUCKET: ${CHECKPOINTS_BUCKET:-checkpoints}
       ARTIFACTS_BUCKET: ${ARTIFACTS_BUCKET:-artifacts}
+      # Heartbeat WRITER: training/eval tasks set hb:{run_id} with this TTL and
+      # refresh on this interval. Readers (backend, reaper) only check existence.
+      HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL_SECONDS:-30}
+      JOB_HEARTBEAT_TTL_SECONDS: ${JOB_HEARTBEAT_TTL_SECONDS:-180}
       CELERY_BROKER_URL: redis://redis:6379/0
       KEYCLOAK_SERVER_URL: https://auth.${DOMAIN}
     deploy:
       resources:
         limits:
-          memory: 8g
+          memory: 16g
+          cpus: "8"
 
-  # Celery Beat scheduler — fires the periodic reaper.
   beat:
     build:
       context: ./backend
       args:
-        ML_EXTRA: ""        # lean image — no torch/deepaudiox
-        RUNTIME_LIBS: ""    # no libsndfile needed
+        ML_EXTRA: ""
+        RUNTIME_LIBS: ""
     container_name: deepaudio-beat
     restart: unless-stopped
     command: celery -A worker.app.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
@@ -152,15 +207,21 @@ services:
       SEAWEEDFS_FILER_URL: http://seaweedfs:8888
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      # Beat builds the reaper schedule from this at startup (worker/app.py).
+      REAPER_INTERVAL_SECONDS: ${REAPER_INTERVAL_SECONDS:-300}
       CELERY_BROKER_URL: redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
 
-  # Maintenance worker — reaper tasks on a dedicated queue (no GPU needed).
   maintenance-worker:
     build:
       context: ./backend
       args:
-        ML_EXTRA: ""        # lean image — no torch/deepaudiox
-        RUNTIME_LIBS: ""    # no libsndfile needed
+        ML_EXTRA: ""
+        RUNTIME_LIBS: ""
     container_name: deepaudio-maintenance
     restart: unless-stopped
     command: celery -A worker.app.celery_app worker --loglevel=info --pool=solo --queues=maintenance --include=worker.maintenance
@@ -180,11 +241,17 @@ services:
       DATA_BUCKET: ${DATA_BUCKET:-raw-audios}
       CHECKPOINTS_BUCKET: ${CHECKPOINTS_BUCKET:-checkpoints}
       ARTIFACTS_BUCKET: ${ARTIFACTS_BUCKET:-artifacts}
+      # The reaper runs HERE — without these it uses the code default (retention
+      # disabled) even if .env.prod enables it.
+      REAPER_INTERVAL_SECONDS: ${REAPER_INTERVAL_SECONDS:-300}
+      DATASET_RETENTION_ENABLED: ${DATASET_RETENTION_ENABLED:-false}
+      DATASET_RETENTION_SECONDS: ${DATASET_RETENTION_SECONDS:-2592000}
       CELERY_BROKER_URL: redis://redis:6379/0
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 8g
+          cpus: "8"
 
   # ── Infrastructure (internal network only — NO published host ports) ──────
   db:
@@ -202,9 +269,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
 
-  # Dedicated database for Keycloak (production Keycloak must not run on the dev
-  # in-memory store). Kept separate from the app DB so schemas don't mix.
+  # Dedicated database for Keycloak (production must not use the dev store).
   keycloak-db:
     image: postgres:16
     container_name: deepaudio-keycloak-db
@@ -225,17 +296,15 @@ services:
     image: quay.io/keycloak/keycloak:26.0
     container_name: deepaudio-keycloak
     restart: unless-stopped
-    # Production mode (NOT start-dev). Imports the realm on first boot.
     command: start --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
       KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
-      # Public URL the browser uses; also pins the token issuer to this value.
       KC_HOSTNAME: https://auth.${DOMAIN}
-      KC_HTTP_ENABLED: "true"                 # TLS is terminated at the edge proxy
-      KC_PROXY_HEADERS: xforwarded            # trust X-Forwarded-* from edge
+      KC_HTTP_ENABLED: "true"                 # TLS terminated at the edge proxy
+      KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -246,6 +315,11 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
 
   redis:
     image: redis:7-alpine
@@ -256,17 +330,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
+
 
   seaweedfs:
-    image: chrislusf/seaweedfs:3.80          # pin to a known-good release; verify before deploy
+    image: chrislusf/seaweedfs:3.80
     container_name: deepaudio-seaweedfs
     restart: unless-stopped
-    environment:
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      S3_BUCKET: raw-audios, checkpoints, artifacts
+    # Explicit command: master + volume + filer (-filer, required for S3) + S3.
+    # -s3.config enables S3 AUTHENTICATION — without it SeaweedFS accepts ALL
+    # requests, leaving the store publicly writable via storage.${DOMAIN}. Keep
+    # the keys in deploy/seaweedfs/s3.json in sync with AWS_ACCESS_KEY_ID /
+    # AWS_SECRET_ACCESS_KEY in .env.prod.
+    # -master.volumePreallocate=false overrides the image default (which reserves
+    # ~1 GiB per volume file up front); volumes now grow with actual data. Buckets
+    # are created by the backend on startup (ensure_buckets), so no S3_BUCKET env.
+    command: server -dir=/data -master.volumePreallocate=false -filer -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -filer.port=8888 -master.port=9333
     volumes:
       - seaweedfs_data:/data
+      - ./deploy/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
 
 volumes:
   postgres_data:

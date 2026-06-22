@@ -1,0 +1,34 @@
+# Local overlay: publishes host ports for direct access during local development.
+# Layers on top of the base. Invoke from the repo root:
+#   docker compose --project-directory . \
+#     -f deploy/docker-compose.base.yml -f deploy/docker-compose.local.yml \
+#     --env-file deploy/env/local.env --profile app up -d
+
+services:
+
+  db:
+    ports:
+      - "5432:5432"
+
+  seaweedfs:
+    ports:
+      - "9333:9333"
+      - "23646:23646"
+      - "8888:8888"
+      - "8333:8333"
+
+  keycloak:
+    ports:
+      - "8080:8080"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "8000:8000"
+
+  frontend:
+    ports:
+      - "5173:80"

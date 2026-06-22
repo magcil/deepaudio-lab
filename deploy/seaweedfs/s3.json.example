@@ -1,0 +1,16 @@
+{
+  "//": "SeaweedFS S3 identities. Copy to s3.json (gitignored) and set accessKey/secretKey",
+  "//keys": "MUST match AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in deploy/env/prod.env",
+  "identities": [
+    {
+      "name": "app",
+      "credentials": [
+        {
+          "accessKey": "REPLACE_WITH_AWS_ACCESS_KEY_ID",
+          "secretKey": "REPLACE_WITH_AWS_SECRET_ACCESS_KEY"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

@@ -14,7 +14,16 @@
 server {
     listen 80;
     server_name ${DOMAIN} auth.${DOMAIN} storage.${DOMAIN};
-    return 301 https://$host$request_uri;
+
+    # Serve Let's Encrypt HTTP-01 challenge files (certbot webroot) over plain
+    # HTTP — must come before the HTTPS redirect.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
 # ── App : SPA + backend API ───────────────────────────────────────────────────

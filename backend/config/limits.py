@@ -23,7 +23,7 @@ MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "128"))
 
 # Set to 0 in containerised environments to avoid the Celery daemon-process
 # restriction that prevents PyTorch DataLoader from spawning workers.
-MAX_NUM_WORKERS = int(os.getenv("MAX_NUM_WORKERS", "4"))
+MAX_NUM_WORKERS = int(os.getenv("MAX_NUM_WORKERS", "8"))
 
 # Concurrency / admission control: how many in-flight (queued + running) jobs
 # are allowed per user and across the whole system. Enforced at request time

@@ -13,53 +13,70 @@ DeepAudio-Lab: A simple app for easily prototyping deep learning models for audi
 
 ## Running with Docker
 
+Deployment compose files live under [`deploy/`](deploy/) — a **ports-less base**
+plus per-environment overlays — and a root `Makefile` wraps the (otherwise long)
+`docker compose` invocations.
+
+```
+deploy/
+  docker-compose.base.yml    # all services, no published ports (shared)
+  docker-compose.local.yml   # local overlay: publishes ports
+  docker-compose.dev.yml     # dev-server overlay
+  docker-compose.gpu.yml     # GPU overlay (composes onto any env)
+  docker-compose.prod.yml    # standalone production (edge proxy, secrets)
+  env/
+    local.env                # local config (committed)
+    dev.env                  # dev-server config (committed)
+    prod.env.example         # production template → copy to prod.env (secret, gitignored)
+```
+
 ### Environment
 
-Copy the root `.env.example` to `.env` and adjust values if needed:
+Local and dev configs are committed under `deploy/env/`, so the Make targets work
+out of the box. For production, copy the template and fill in real secrets:
 
 ```bash
-cp .env.example .env
+cp deploy/env/prod.env.example deploy/env/prod.env   # then edit; never commit it
 ```
 
-The defaults work out of the box for local development.
+### Common commands
 
-### Infra only (recommended for active development)
+| Command | What it runs |
+|---|---|
+| `make infra` | Local **infra only** (Postgres, SeaweedFS, Keycloak, Redis) — run backend/frontend on the host |
+| `make up` | Local full app (CPU) |
+| `make up-gpu` | Local full app with NVIDIA GPU |
+| `make down` | Stop the local stack |
+| `make dev` | Dev-server full app |
+| `make prod` / `make prod-gpu` | Production (standalone), optionally with GPU |
+| `make config-local` / `make config-prod` | Print the merged, resolved config (validation) |
 
-Starts PostgreSQL, SeaweedFS, Keycloak, and Redis in containers while you run the backend and frontend locally:
+GPU targets require `nvidia-container-toolkit` on the host.
+
+<details><summary>Equivalent raw <code>docker compose</code> commands</summary>
+
+Always run from the repo root with `--project-directory .` so the files in
+`deploy/` resolve their relative paths (build contexts, mounts) against the repo
+root:
 
 ```bash
-docker compose up -d
+# local full app (CPU)
+docker compose --project-directory . \
+  -f deploy/docker-compose.base.yml -f deploy/docker-compose.local.yml \
+  --env-file deploy/env/local.env --profile app up -d --build
+
+# add GPU (compose the gpu overlay on top)
+docker compose --project-directory . \
+  -f deploy/docker-compose.base.yml -f deploy/docker-compose.local.yml \
+  -f deploy/docker-compose.gpu.yml \
+  --env-file deploy/env/local.env --profile app up -d --build
+
+# production (standalone — not a base+overlay)
+docker compose --project-directory . -f deploy/docker-compose.prod.yml \
+  --env-file deploy/env/prod.env up -d --build
 ```
 
-To stop:
-
-```bash
-docker compose down
-```
-
-### Full app (all services containerised, no GPU)
-
-Builds and starts every service: the backend, the Celery training worker, the
-**Celery Beat scheduler** and **maintenance worker** (background reaper — see
-[Background services & limits](#background-services--limits)), and the frontend:
-
-```bash
-docker compose --profile app up --build
-```
-
-Pass `-d` to run in the background. To stop:
-
-```bash
-docker compose --profile app down
-```
-
-### Full app with GPU support
-
-Required when the host machine has an NVIDIA GPU and `nvidia-container-toolkit` installed. This enables CUDA acceleration in the Celery training worker:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile app up --build
-```
+</details>
 
 ### Background services & limits
 
@@ -93,7 +110,9 @@ These are read at container startup, so apply a change by recreating the
 affected service (no rebuild needed) — e.g.:
 
 ```bash
-docker compose --profile app up -d --force-recreate maintenance-worker
+docker compose --project-directory . \
+  -f deploy/docker-compose.base.yml -f deploy/docker-compose.local.yml \
+  --env-file deploy/env/local.env --profile app up -d --force-recreate maintenance-worker
 ```
 
 ### Service URLs
@@ -112,7 +131,7 @@ docker compose --profile app up -d --force-recreate maintenance-worker
 
 ## Local development (without containers)
 
-Requires the infra services to be running first (`docker compose up -d`).
+Requires the infra services to be running first (`make infra`).
 
 ### Environment
 

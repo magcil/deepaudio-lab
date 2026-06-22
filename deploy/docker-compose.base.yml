@@ -1,4 +1,15 @@
-name: deepaudio-lab
+# Base compose file: ALL service definitions, build contexts, internal wiring.
+# It publishes NO host ports and adds no GPU — each environment overlay layers
+# those on (compose.local.yml, compose.gpu.yml, compose.prod.yml, ...).
+#
+# Relative paths (build contexts, volume mounts) are written relative to the
+# REPO ROOT, so always invoke with `--project-directory .` from the repo root,
+# e.g.:
+#   docker compose --project-directory . \
+#     -f deploy/docker-compose.base.yml -f deploy/docker-compose.local.yml \
+#     --env-file deploy/env/local.env --profile app up -d
+
+name: deepaudio
 
 services:
 
@@ -12,8 +23,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,11 +35,6 @@ services:
     image: chrislusf/seaweedfs:latest
     container_name: deepaudio-seaweedfs
     restart: unless-stopped
-    ports:
-      - "9333:9333"
-      - "23646:23646"
-      - "8888:8888"
-      - "8333:8333"
     environment:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -41,13 +45,12 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: deepaudio-keycloak
+    # Dev-mode default; the prod overlay overrides this with `start`.
     command: start-dev --health-enabled=true --import-realm
     restart: unless-stopped
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-    ports:
-      - "8080:8080"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
@@ -56,15 +59,13 @@ services:
     image: redis:7-alpine
     container_name: deepaudio-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── Application (docker compose --profile app up) ─────────────────────────
+  # ── Application (gated behind the `app` profile) ──────────────────────────
 
   backend:
     build:
@@ -81,16 +82,14 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       S3_API: http://seaweedfs:8333
       S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:8333}
       SEAWEEDFS_FILER_URL: http://seaweedfs:8888
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
       CELERY_BROKER_URL: redis://redis:6379/0
-    ports:
-      - "8000:8000"
 
   worker:
     build:
@@ -111,21 +110,22 @@ services:
         condition: service_healthy
       seaweedfs:
         condition: service_started
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       S3_API: http://seaweedfs:8333
       SEAWEEDFS_FILER_URL: http://seaweedfs:8888
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
       CELERY_BROKER_URL: redis://redis:6379/0
 
-  # Celery Beat scheduler — fires the periodic reaper (no work itself).
+  # Celery Beat scheduler — fires the periodic reaper (does no work itself).
+  # Always built lean (no torch/deepaudiox).
   beat:
     build:
       context: ./backend
       args:
-        ML_EXTRA: ""        # lean image — no torch/deepaudiox
-        RUNTIME_LIBS: ""    # no libsndfile needed
+        ML_EXTRA: ""
+        RUNTIME_LIBS: ""
     container_name: deepaudio-beat
     restart: unless-stopped
     profiles: [app]
@@ -133,22 +133,22 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       S3_API: http://seaweedfs:8333
       SEAWEEDFS_FILER_URL: http://seaweedfs:8888
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
       CELERY_BROKER_URL: redis://redis:6379/0
 
   # Maintenance worker — runs reaper tasks on a dedicated queue so they never
-  # wait behind a long training job on the solo GPU worker. No GPU needed.
+  # wait behind a long training job on the solo GPU worker. Always built lean.
   maintenance-worker:
     build:
       context: ./backend
       args:
-        ML_EXTRA: ""        # lean image — no torch/deepaudiox
-        RUNTIME_LIBS: ""    # no libsndfile needed
+        ML_EXTRA: ""
+        RUNTIME_LIBS: ""
     container_name: deepaudio-maintenance
     restart: unless-stopped
     profiles: [app]
@@ -160,12 +160,12 @@ services:
         condition: service_healthy
       seaweedfs:
         condition: service_started
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       S3_API: http://seaweedfs:8333
       SEAWEEDFS_FILER_URL: http://seaweedfs:8888
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
       CELERY_BROKER_URL: redis://redis:6379/0
 
   frontend:
@@ -173,13 +173,16 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8080}
+        VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-deepaudiolab}
+        # PUBLIC frontend client — the frontend/Dockerfile default is the
+        # confidential backend client, which is wrong for the SPA.
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-deepaudiolab}
     container_name: deepaudio-frontend
     restart: unless-stopped
     profiles: [app]
     depends_on:
       - backend
-    ports:
-      - "5173:80"
 
 volumes:
   postgres_data:

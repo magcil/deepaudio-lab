@@ -156,6 +156,18 @@ ENV/
 env.bak/
 venv.bak/
 
+# Deploy env files: commit the templates (the generic `env/` rule above hides
+# them), but NEVER commit real production secrets.
+!deploy/env/
+!deploy/env/*.env
+deploy/env/prod.env
+deploy/env/*.secret.env
+
+# Production secrets / runtime state (commit only the *.example templates)
+deploy/seaweedfs/s3.json
+deploy/nginx/certs/
+certbot/
+
 # Spyder project settings
 .spyderproject
 .spyproject

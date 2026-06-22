@@ -8,6 +8,7 @@
   "resetPasswordAllowed": true,
   "accessTokenLifespan": 1200,
   "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeout": 21600,
   "roles": {
     "realm": [
       {
