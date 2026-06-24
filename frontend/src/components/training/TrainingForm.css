@@ -177,6 +177,12 @@
   background: #4d7fe0;
 }
 
+.btn-primary:disabled {
+  background: rgba(59, 111, 212, 0.35);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: not-allowed;
+}
+
 .training-started-msg {
   margin: 12px 0 0;
   font-size: 13px;

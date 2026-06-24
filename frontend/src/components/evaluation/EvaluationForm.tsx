@@ -208,7 +208,7 @@ export default function EvaluationForm() {
       />
 
       <div className="form-actions">
-        <button type="submit" className="btn-primary">Run Evaluation</button>
+        <button type="submit" className="btn-primary" disabled={!selectedRun || !form.testSet}>Run Evaluation</button>
         {started && <p className="training-started-msg">Evaluation has started</p>}
         {submitError && <p className="training-error-msg">{submitError}</p>}
       </div>
