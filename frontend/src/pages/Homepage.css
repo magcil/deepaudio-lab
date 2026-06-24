@@ -162,6 +162,10 @@
   font-size: 13px;
   line-height: 1.55;
   color: #9fb5d1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .experiment-card__timestamp {

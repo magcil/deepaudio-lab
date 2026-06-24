@@ -76,7 +76,7 @@ class TrainParams(BaseModel):
     gpu_index: int | None = Field(default=None, ge=0)
     device: str = Field(default="cpu")
     experiment_name: str = Field(min_length=1)
-    description: str | None = Field(default=None)
+    description: str | None = Field(default=None, max_length=500)
 
     @field_validator("pooling", mode="before")
     @classmethod

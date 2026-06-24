@@ -52,6 +52,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
           value={values.description}
           onChange={onChange}
           rows={2}
+          maxLength={500}
         />
       </div>
 
