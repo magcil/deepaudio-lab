@@ -21,7 +21,6 @@ export interface TrainingFormData {
   poolingMethod: string
   pretrained: boolean
   freezeBackbone: boolean
-  modelSamplingRate: string
   checkpoint: string
   // Hyperparameters
   epochs: string
@@ -45,7 +44,6 @@ const INITIAL_FORM: TrainingFormData = {
   poolingMethod: '',
   pretrained: true,
   freezeBackbone: false,
-  modelSamplingRate: '',
   checkpoint: '',
   epochs: '',
   patience: '',

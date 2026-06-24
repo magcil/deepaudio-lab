@@ -1,7 +1,7 @@
 import type { TrainingFormData } from './TrainingForm'
 
 interface Props {
-  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'modelSamplingRate' | 'checkpoint'>
+  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'checkpoint'>
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
   onToggle: (name: keyof TrainingFormData) => void
   backbones: string[]
@@ -47,21 +47,6 @@ export default function ModelSettingsSection({ values, onChange, onToggle, backb
             <button type="button" className={`toggle-btn ${!values.freezeBackbone ? 'active' : ''}`} onClick={() => onToggle('freezeBackbone')}>No</button>
           </div>
         </div>
-      </div>
-
-      <div className="form-field">
-        <label htmlFor="modelSamplingRate">Sampling Rate (Hz)</label>
-        <input
-          id="modelSamplingRate"
-          name="modelSamplingRate"
-          type="number"
-          placeholder="e.g. 22050"
-          min={1}
-          step={1}
-          value={values.modelSamplingRate}
-          onChange={onChange}
-          required
-        />
       </div>
 
       <div className="form-field">

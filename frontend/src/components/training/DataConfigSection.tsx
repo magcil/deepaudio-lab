@@ -106,6 +106,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
             type="number"
             placeholder="e.g. 22050"
             min={1}
+            max={44100}
             step={1}
             value={values.samplingRate}
             onChange={onChange}
