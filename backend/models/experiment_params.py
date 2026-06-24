@@ -55,6 +55,8 @@ class ExperimentParams(Base):
         freeze_backbone (bool): Whether backbone weights are frozen.
         path_to_checkpoint (str): Path to model checkpoint.
         dataset_id (int): ID of the Dataset record used for this run.
+        dataset_name (str | None): Human-readable name of the dataset at the time of
+            training. Preserved even if the dataset is later deleted.
         path_to_train (str): Path to training dataset.
         path_to_validation (str | None): Path to validation dataset.
         path_to_test (str | None): Path to test/evaluation dataset.
@@ -86,6 +88,7 @@ class ExperimentParams(Base):
     freeze_backbone = Column(Boolean, nullable=False)
     path_to_checkpoint = Column(String, nullable=False)
     dataset_id = Column(Integer, nullable=False)
+    dataset_name = Column(String)
     path_to_train = Column(String, nullable=False)
     path_to_validation = Column(String)
     path_to_test = Column(String)

@@ -167,6 +167,7 @@ def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
         freeze_backbone=params.freeze_backbone,
         path_to_checkpoint=params.checkpoint,
         dataset_id=params.dataset_id,
+        dataset_name=dataset.name,
         path_to_train=params.training_set,
         path_to_validation=params.validation_set,
         device=params.device,
@@ -256,7 +257,6 @@ def _serialize_run_detail(run, db: Session) -> dict:
     }
     if run.experiment_params:
         exp = run.experiment_params
-        dataset = dataset_repository.get_by_id(db, exp.dataset_id)
         result["exp_params"] = {
             "class_mapping": exp.class_mapping,
             "batch_size": exp.batch_size,
@@ -272,7 +272,7 @@ def _serialize_run_detail(run, db: Session) -> dict:
             "pooling": exp.pooling,
             "freeze_backbone": exp.freeze_backbone,
             "path_to_checkpoint": exp.path_to_checkpoint,
-            "dataset_name": dataset.name if dataset else None,
+            "dataset_name": exp.dataset_name,
             "path_to_train": exp.path_to_train,
             "path_to_validation": exp.path_to_validation,
             "path_to_test": exp.path_to_test,
