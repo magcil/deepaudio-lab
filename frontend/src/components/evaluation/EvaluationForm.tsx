@@ -33,6 +33,7 @@ export default function EvaluationForm() {
   const [open, setOpen] = useState(false)
   const [started, setStarted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [form, setForm] = useState<EvaluationFormData>(INITIAL_FORM)
 
   useEffect(() => {
@@ -58,7 +59,14 @@ export default function EvaluationForm() {
   }, [selectedRun])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm(prev => ({ ...prev, [name]: value }))
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
   }
 
   function handleDeviceChange(device: 'cpu' | 'gpu' | 'mps') {
@@ -71,6 +79,25 @@ export default function EvaluationForm() {
       setExperimentError(true)
       return
     }
+
+    // Client-side validation via Constraint Validation API
+    const formEl = e.currentTarget
+    const clientErrors: Record<string, string> = {}
+    for (const el of Array.from(formEl.elements)) {
+      if (
+        (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) &&
+        el.name &&
+        !el.validity.valid
+      ) {
+        clientErrors[el.name] = el.validationMessage
+      }
+    }
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors)
+      setSubmitError(null)
+      return
+    }
+
     const payload = {
       testSet: form.testSet,
       trainRunId: selectedRun.id,
@@ -81,6 +108,7 @@ export default function EvaluationForm() {
     }
 
     setSubmitError(null)
+    setFieldErrors({})
     try {
       const { task_id } = await startEvaluation(payload)
       console.log('Evaluation started, task_id:', task_id)
@@ -89,9 +117,28 @@ export default function EvaluationForm() {
       setStarted(true)
       setTimeout(() => setStarted(false), 8000)
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 429 || err.status === 503)) {
-        // Backend returns a friendly detail message for job-limit / capacity errors.
-        setSubmitError(err.message)
+      if (err instanceof ApiError) {
+        if (err.status === 429 || err.status === 503) {
+          setSubmitError(err.message)
+        } else if (err.status === 422) {
+          try {
+            const body = JSON.parse(err.message)
+            if (Array.isArray(body?.detail)) {
+              const errors: Record<string, string> = {}
+              for (const d of body.detail as { loc: string[]; msg: string }[]) {
+                const field = d.loc.at(-1)
+                if (field) errors[String(field)] = d.msg
+              }
+              setFieldErrors(errors)
+            } else {
+              setSubmitError('Validation error. Please check your inputs.')
+            }
+          } catch {
+            setSubmitError('Validation error. Please check your inputs.')
+          }
+        } else {
+          setSubmitError('Could not start evaluation. Please try again.')
+        }
       } else {
         setSubmitError('Could not start evaluation. Please try again.')
       }
@@ -106,7 +153,7 @@ export default function EvaluationForm() {
   }
 
   return (
-    <form className="training-form" onSubmit={handleSubmit}>
+    <form className="training-form" onSubmit={handleSubmit} noValidate>
       <div className="experiment-picker">
         <div className="experiment-picker-row">
           <button
@@ -129,6 +176,9 @@ export default function EvaluationForm() {
             </select>
           )}
         </div>
+        {fieldErrors.testSet && (
+          <span className="field-error">{fieldErrors.testSet}</span>
+        )}
         {experimentError && (
           <p className="experiment-picker-error">Please select an experiment before running evaluation.</p>
         )}
@@ -154,6 +204,7 @@ export default function EvaluationForm() {
         gpuIndexes={gpuIndexes}
         cudaAvailable={cudaAvailable}
         mpsAvailable={mpsAvailable}
+        fieldErrors={fieldErrors}
       />
 
       <div className="form-actions">

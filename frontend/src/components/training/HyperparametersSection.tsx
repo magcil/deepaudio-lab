@@ -9,9 +9,10 @@ interface Props {
   cudaAvailable: boolean
   mpsAvailable: boolean
   limits: TrainingLimits | null
+  fieldErrors: Record<string, string>
 }
 
-export default function HyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable, limits }: Props) {
+export default function HyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable, limits, fieldErrors }: Props) {
   const deviceUnavailableMessage =
     values.device === 'gpu' && !cudaAvailable
       ? 'No CUDA GPU detected on this machine. Training will fall back to CPU.'
@@ -41,6 +42,7 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
             onChange={onChange}
             required
           />
+          {fieldErrors.epochs && <span className="field-error">{fieldErrors.epochs}</span>}
         </div>
 
         <div className="form-field">
@@ -56,6 +58,7 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
             onChange={onChange}
             required
           />
+          {fieldErrors.patience && <span className="field-error">{fieldErrors.patience}</span>}
         </div>
       </div>
 
@@ -73,6 +76,7 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
             onChange={onChange}
             required
           />
+          {fieldErrors.learningRate && <span className="field-error">{fieldErrors.learningRate}</span>}
         </div>
 
         <div className="form-field">
@@ -92,6 +96,7 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
             onChange={onChange}
             required
           />
+          {fieldErrors.batchSize && <span className="field-error">{fieldErrors.batchSize}</span>}
         </div>
       </div>
 
@@ -113,6 +118,7 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
             onChange={onChange}
             required
           />
+          {fieldErrors.workers && <span className="field-error">{fieldErrors.workers}</span>}
         </div>
 
         <div className="form-field">
@@ -164,6 +170,7 @@ export default function HyperparametersSection({ values, onChange, onDeviceChang
               <option key={i} value={i}>{i}</option>
             ))}
           </select>
+          {fieldErrors.gpuIndex && <span className="field-error">{fieldErrors.gpuIndex}</span>}
         </div>
       )}
     </div>

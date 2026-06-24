@@ -10,9 +10,10 @@ interface Props {
   onDatasetChange: (id: number | null) => void
   datasets: Dataset[]
   limits: TrainingLimits | null
+  fieldErrors: Record<string, string>
 }
 
-export default function DataConfigSection({ values, onChange, onDatasetChange, datasets, limits }: Props) {
+export default function DataConfigSection({ values, onChange, onDatasetChange, datasets, limits, fieldErrors }: Props) {
   const [splits, setSplits] = useState<string[]>([])
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
           onChange={onChange}
           required
         />
+        {fieldErrors.experimentName && <span className="field-error">{fieldErrors.experimentName}</span>}
       </div>
 
       <div className="form-field">
@@ -54,6 +56,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
           rows={2}
           maxLength={500}
         />
+        {fieldErrors.description && <span className="field-error">{fieldErrors.description}</span>}
       </div>
 
       <div className="form-field">
@@ -69,6 +72,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
             <option key={ds.id} value={ds.id}>{ds.name}</option>
           ))}
         </select>
+        {fieldErrors.datasetId && <span className="field-error">{fieldErrors.datasetId}</span>}
       </div>
 
       {values.datasetId !== null && (
@@ -80,6 +84,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          {fieldErrors.trainingSet && <span className="field-error">{fieldErrors.trainingSet}</span>}
         </div>
       )}
 
@@ -113,6 +118,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
             onChange={onChange}
             required
           />
+          {fieldErrors.samplingRate && <span className="field-error">{fieldErrors.samplingRate}</span>}
         </div>
 
         <div className="form-field">
@@ -132,6 +138,7 @@ export default function DataConfigSection({ values, onChange, onDatasetChange, d
             onChange={onChange}
             required
           />
+          {fieldErrors.segmentDuration && <span className="field-error">{fieldErrors.segmentDuration}</span>}
         </div>
       </div>
     </div>
