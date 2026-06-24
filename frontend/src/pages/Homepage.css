@@ -164,6 +164,12 @@
   color: #9fb5d1;
 }
 
+.experiment-card__timestamp {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #637a96;
+}
+
 .experiment-card__pills {
   display: flex;
   flex-wrap: wrap;
