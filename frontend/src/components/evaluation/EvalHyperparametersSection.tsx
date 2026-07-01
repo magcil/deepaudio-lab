@@ -1,4 +1,5 @@
 import type { EvaluationFormData } from './EvaluationForm'
+import type { EvaluationLimits } from '../../services/evaluationService'
 
 interface Props {
   values: Pick<EvaluationFormData, 'batchSize' | 'workers' | 'device' | 'gpuIndex'>
@@ -7,10 +8,11 @@ interface Props {
   gpuIndexes: number[]
   cudaAvailable: boolean
   mpsAvailable: boolean
+  limits: EvaluationLimits | null
   fieldErrors: Record<string, string>
 }
 
-export default function EvalHyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable, fieldErrors }: Props) {
+export default function EvalHyperparametersSection({ values, onChange, onDeviceChange, gpuIndexes, cudaAvailable, mpsAvailable, limits, fieldErrors }: Props) {
   const deviceUnavailableMessage =
     values.device === 'gpu' && !cudaAvailable
       ? 'No CUDA GPU detected on this machine. Evaluation will fall back to CPU.'
@@ -24,13 +26,17 @@ export default function EvalHyperparametersSection({ values, onChange, onDeviceC
 
       <div className="form-row">
         <div className="form-field">
-          <label htmlFor="batchSize">Batch Size</label>
+          <label htmlFor="batchSize">
+            Batch Size
+            {limits && <span className="field-hint">max {limits.max_batch_size}</span>}
+          </label>
           <input
             id="batchSize"
             name="batchSize"
             type="number"
-            placeholder="e.g. 32"
+            placeholder={limits ? `1 – ${limits.max_batch_size}` : 'e.g. 32'}
             min={1}
+            max={limits?.max_batch_size}
             step={1}
             value={values.batchSize}
             onChange={onChange}
@@ -40,14 +46,17 @@ export default function EvalHyperparametersSection({ values, onChange, onDeviceC
         </div>
 
         <div className="form-field">
-          <label htmlFor="workers">Workers</label>
+          <label htmlFor="workers">
+            Workers
+            {limits && <span className="field-hint">max {limits.max_num_workers}</span>}
+          </label>
           <input
             id="workers"
             name="workers"
             type="number"
-            placeholder="1 – 8"
+            placeholder={limits ? `1 – ${limits.max_num_workers}` : '1'}
             min={1}
-            max={8}
+            max={limits?.max_num_workers}
             step={1}
             value={values.workers}
             onChange={onChange}

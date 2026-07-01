@@ -13,7 +13,7 @@ from db.session import get_db
 from repositories import run_repository
 from schemas.evaluation_params import EvaluationOptionsResponse, EvaluationParams
 from schemas.user_info import UserInfo
-from services import concurrency_service, run_service
+from services import concurrency_service, limit_service, run_service
 from worker.app import celery_app
 from worker.evaluation import run_evaluation
 
@@ -36,6 +36,12 @@ def get_evaluation_options(_: UserInfo = Depends(get_current_user)):
         "cuda_available": cuda_available,
         "mps_available": mps_available,
     }
+
+
+@router.get("/limits", status_code=status.HTTP_200_OK)
+def get_evaluation_limits(_: UserInfo = Depends(get_current_user)):
+    """Return the server-enforced ceilings for evaluation hyperparameters."""
+    return limit_service.get_current_limits()
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)

@@ -122,6 +122,19 @@ def validate_run_params(params: TrainParams):
         raise UnprocessableEntityError(f"Parameters exceed limits: {', '.join(errors)}")
 
 
+def validate_evaluation_params(params: EvaluationParams):
+    errors = []
+
+    if params.batch_size > MAX_BATCH_SIZE:
+        errors.append(f"batch_size must be <= {MAX_BATCH_SIZE}")
+
+    if params.workers > MAX_NUM_WORKERS:
+        errors.append(f"workers must be <= {MAX_NUM_WORKERS}")
+
+    if errors:
+        raise UnprocessableEntityError(f"Parameters exceed limits: {', '.join(errors)}")
+
+
 def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
 
@@ -194,6 +207,8 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_
     Returns:
         tuple[int, dict]: The ID of the training run and the updated experiment parameters.
     """
+    validate_evaluation_params(params=evaluation_params)
+
     train_exp = run_repository.get_by_id(db, evaluation_params.train_run_id, owner_id=owner_id)
     if train_exp is None:
         raise ReferencedEntityNotFoundError("Run", evaluation_params.train_run_id)
@@ -216,10 +231,10 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_
         "sample_rate": exp_params.sample_rate,
         "segment_duration": exp_params.segment_duration,
         "class_mapping": exp_params.class_mapping,
-        "batch_size": exp_params.batch_size,
-        "num_workers": exp_params.num_workers,
-        "device": exp_params.device,
-        "gpu_index": exp_params.gpu_index,
+        "batch_size": evaluation_params.batch_size,
+        "num_workers": evaluation_params.workers,
+        "device": evaluation_params.device,
+        "gpu_index": evaluation_params.gpu_index,
     }
 
     return train_exp.id, exp_params_dict

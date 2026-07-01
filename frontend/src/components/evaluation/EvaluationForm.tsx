@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import EvalHyperparametersSection from './EvalHyperparametersSection'
-import { startEvaluation, getEvaluationOptions, getTrainRuns, type TrainRun } from '../../services/evaluationService'
+import { startEvaluation, getEvaluationOptions, getEvaluationLimits, getTrainRuns, type TrainRun, type EvaluationLimits } from '../../services/evaluationService'
 import { getDatasetSplits } from '../../services/datasetService'
 import { ApiError } from '../../api/client'
 import '../training/TrainingForm.css'
@@ -26,6 +26,7 @@ export default function EvaluationForm() {
   const [gpuIndexes, setGpuIndexes] = useState<number[]>([])
   const [cudaAvailable, setCudaAvailable] = useState(false)
   const [mpsAvailable, setMpsAvailable] = useState(false)
+  const [limits, setLimits] = useState<EvaluationLimits | null>(null)
   const [trainRuns, setTrainRuns] = useState<TrainRun[]>([])
   const [selectedRun, setSelectedRun] = useState<TrainRun | null>(null)
   const [splits, setSplits] = useState<string[]>([])
@@ -44,6 +45,8 @@ export default function EvaluationForm() {
         setMpsAvailable(data.mpsAvailable)
       })
       .catch(console.error)
+
+    getEvaluationLimits().then(setLimits).catch(console.error)
 
     getTrainRuns()
       .then(setTrainRuns)
@@ -204,6 +207,7 @@ export default function EvaluationForm() {
         gpuIndexes={gpuIndexes}
         cudaAvailable={cudaAvailable}
         mpsAvailable={mpsAvailable}
+        limits={limits}
         fieldErrors={fieldErrors}
       />
 
