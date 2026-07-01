@@ -20,7 +20,7 @@ class TrainParams(BaseModel):
         training_data (str): Filesystem path to the training dataset directory.
         validation_data (str | None): Optional path to a validation dataset.
             If ``None``, a validation split may be derived from training data.
-        sampling_rate (int): Audio sample rate in Hz. Must be positive.
+        sampling_rate (int): Audio sample rate in Hz. Must be between 1 and 44100.
         segment_duration (float | None): Duration in seconds for audio
             segmentation. If ``None``, full-length clips are used.
         backbone (str): Name of the backbone architecture to use.
@@ -61,7 +61,7 @@ class TrainParams(BaseModel):
     dataset_id: int
     training_set: str
     validation_set: str | None = Field(default=None)
-    sampling_rate: int = Field(default=16_000, gt=0)
+    sampling_rate: int = Field(default=16_000, gt=0, le=44_100)
     segment_duration: float | None = Field(default=None, gt=0)
     backbone: str
     pretrained: bool = Field(default=False)
@@ -76,7 +76,7 @@ class TrainParams(BaseModel):
     gpu_index: int | None = Field(default=None, ge=0)
     device: str = Field(default="cpu")
     experiment_name: str = Field(min_length=1)
-    description: str | None = Field(default=None)
+    description: str | None = Field(default=None, max_length=500)
 
     @field_validator("pooling", mode="before")
     @classmethod

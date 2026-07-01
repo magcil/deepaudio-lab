@@ -34,7 +34,16 @@ export default function Deployment() {
       setBundleName('');
       setSelectedRunId('');
     } catch (err) {
-      setCreateError(err instanceof ApiError ? err.message : 'Failed to start deployment');
+      if (err instanceof ApiError) {
+        try {
+          const body = JSON.parse(err.message)
+          setCreateError(typeof body?.detail === 'string' ? body.detail : 'Failed to start deployment')
+        } catch {
+          setCreateError('Failed to start deployment')
+        }
+      } else {
+        setCreateError('Failed to start deployment')
+      }
     } finally {
       setCreating(false);
     }

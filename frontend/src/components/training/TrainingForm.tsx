@@ -21,7 +21,6 @@ export interface TrainingFormData {
   poolingMethod: string
   pretrained: boolean
   freezeBackbone: boolean
-  modelSamplingRate: string
   checkpoint: string
   // Hyperparameters
   epochs: string
@@ -45,7 +44,6 @@ const INITIAL_FORM: TrainingFormData = {
   poolingMethod: '',
   pretrained: true,
   freezeBackbone: false,
-  modelSamplingRate: '',
   checkpoint: '',
   epochs: '',
   patience: '',
@@ -63,6 +61,7 @@ export default function TrainingForm() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [started, setStarted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     getTrainingOptions()
@@ -78,7 +77,14 @@ export default function TrainingForm() {
   const [form, setForm] = useState<TrainingFormData>(INITIAL_FORM)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm(prev => ({ ...prev, [name]: value }))
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
   }
 
   function handleToggle(name: keyof TrainingFormData) {
@@ -91,10 +97,35 @@ export default function TrainingForm() {
 
   function handleDatasetChange(id: number | null) {
     setForm(prev => ({ ...prev, datasetId: id, trainingSet: '', validationSet: '' }))
+    setFieldErrors(prev => {
+      const next = { ...prev }
+      delete next['datasetId']
+      delete next['trainingSet']
+      return next
+    })
   }
 
-  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
+
+    // Client-side validation via Constraint Validation API
+    const formEl = e.currentTarget
+    const clientErrors: Record<string, string> = {}
+    for (const el of Array.from(formEl.elements)) {
+      if (
+        (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) &&
+        el.name &&
+        !el.validity.valid
+      ) {
+        clientErrors[el.name] = el.validationMessage
+      }
+    }
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors)
+      setSubmitError(null)
+      return
+    }
+
     const payload = {
       experimentName: form.experimentName,
       description: form.description || null,
@@ -118,6 +149,7 @@ export default function TrainingForm() {
     }
 
     setSubmitError(null)
+    setFieldErrors({})
     try {
       const { task_id } = await startTraining(payload)
       console.log('Training started, task_id:', task_id)
@@ -125,9 +157,36 @@ export default function TrainingForm() {
       setStarted(true)
       setTimeout(() => setStarted(false), 8000)
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 429 || err.status === 503)) {
-        // Backend returns a friendly detail message for job-limit / capacity errors.
-        setSubmitError(err.message)
+      if (err instanceof ApiError) {
+        if (err.status === 429 || err.status === 503) {
+          setSubmitError(err.message)
+        } else if (err.status === 409) {
+          try {
+            const body = JSON.parse(err.message)
+            const msg = typeof body?.detail === 'string' ? body.detail : 'An experiment with this name already exists.'
+            setFieldErrors({ experimentName: msg })
+          } catch {
+            setFieldErrors({ experimentName: 'An experiment with this name already exists.' })
+          }
+        } else if (err.status === 422) {
+          try {
+            const body = JSON.parse(err.message)
+            if (Array.isArray(body?.detail)) {
+              const errors: Record<string, string> = {}
+              for (const d of body.detail as { loc: string[]; msg: string }[]) {
+                const field = d.loc.at(-1)
+                if (field) errors[String(field)] = d.msg
+              }
+              setFieldErrors(errors)
+            } else {
+              setSubmitError('Validation error. Please check your inputs.')
+            }
+          } catch {
+            setSubmitError('Validation error. Please check your inputs.')
+          }
+        } else {
+          setSubmitError('Could not start training. Please try again.')
+        }
       } else {
         setSubmitError('Could not start training. Please try again.')
       }
@@ -135,10 +194,10 @@ export default function TrainingForm() {
   }
 
   return (
-    <form className="training-form" onSubmit={handleSubmit}>
-      <DataConfigSection values={form} onChange={handleChange} onDatasetChange={handleDatasetChange} datasets={datasets} limits={limits} />
-      <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} />
-      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} limits={limits} />
+    <form className="training-form" onSubmit={handleSubmit} noValidate>
+      <DataConfigSection values={form} onChange={handleChange} onDatasetChange={handleDatasetChange} datasets={datasets} limits={limits} fieldErrors={fieldErrors} />
+      <ModelSettingsSection values={form} onChange={handleChange} onToggle={handleToggle} backbones={options.backbones} poolingMethods={options.poolingMethods} fieldErrors={fieldErrors} />
+      <HyperparametersSection values={form} onChange={handleChange} onDeviceChange={handleDeviceChange} gpuIndexes={options.gpuIndexes} cudaAvailable={options.cudaAvailable} mpsAvailable={options.mpsAvailable} limits={limits} fieldErrors={fieldErrors} />
 
       <div className="form-actions">
         <button type="submit" className="btn-primary">Start Training</button>

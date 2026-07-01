@@ -1,7 +1,9 @@
 # services/training_service.py
+import gc
 import logging
 import time
 
+import torch
 import torch.nn as nn
 from deepaudiox import Trainer
 from deepaudiox.utils.training_utils import get_device
@@ -76,7 +78,13 @@ class TrainingService:
             run_id (int): Primary key of the run these losses belong to.
         """
         db = SessionLocal()
+        # Pre-bound so the finally block can unconditionally `del` them to free
+        # GPU memory, even if an exception fires before they are assigned.
         trainer = None
+        model = None
+        optimizer = None
+        scheduler = None
+        loss_function = None
         try:
             update_training_status(db=db, run_id=run_id, training_status=TrainingStatus.progress)
 
@@ -208,4 +216,16 @@ class TrainingService:
             if trainer is not None:
                 for cb in trainer.callbacks:
                     cb.on_train_end(trainer)
+
+            # Release GPU memory held by this job. The worker runs --pool=solo,
+            # so its process is long-lived and never recycled between tasks;
+            # without this, the model/optimizer tensors and PyTorch's cached
+            # blocks stay resident on the GPU after the run ends and starve the
+            # next one. empty_cache() only frees UNreferenced memory, so the
+            # del + gc.collect() must come first.
+            del trainer, model, optimizer, scheduler, loss_function
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
             db.close()
