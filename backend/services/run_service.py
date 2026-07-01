@@ -122,6 +122,19 @@ def validate_run_params(params: TrainParams):
         raise UnprocessableEntityError(f"Parameters exceed limits: {', '.join(errors)}")
 
 
+def validate_evaluation_params(params: EvaluationParams):
+    errors = []
+
+    if params.batch_size > MAX_BATCH_SIZE:
+        errors.append(f"batch_size must be <= {MAX_BATCH_SIZE}")
+
+    if params.workers > MAX_NUM_WORKERS:
+        errors.append(f"workers must be <= {MAX_NUM_WORKERS}")
+
+    if errors:
+        raise UnprocessableEntityError(f"Parameters exceed limits: {', '.join(errors)}")
+
+
 def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
     """Validate inputs and persist a new training run with its experiment parameters.
 
@@ -167,6 +180,7 @@ def register_train(db: Session, params: TrainParams, owner_id: str) -> dict:
         freeze_backbone=params.freeze_backbone,
         path_to_checkpoint=params.checkpoint,
         dataset_id=params.dataset_id,
+        dataset_name=dataset.name,
         path_to_train=params.training_set,
         path_to_validation=params.validation_set,
         device=params.device,
@@ -193,6 +207,8 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_
     Returns:
         tuple[int, dict]: The ID of the training run and the updated experiment parameters.
     """
+    validate_evaluation_params(params=evaluation_params)
+
     train_exp = run_repository.get_by_id(db, evaluation_params.train_run_id, owner_id=owner_id)
     if train_exp is None:
         raise ReferencedEntityNotFoundError("Run", evaluation_params.train_run_id)
@@ -215,10 +231,10 @@ def register_evaluation(db: Session, evaluation_params: EvaluationParams, owner_
         "sample_rate": exp_params.sample_rate,
         "segment_duration": exp_params.segment_duration,
         "class_mapping": exp_params.class_mapping,
-        "batch_size": exp_params.batch_size,
-        "num_workers": exp_params.num_workers,
-        "device": exp_params.device,
-        "gpu_index": exp_params.gpu_index,
+        "batch_size": evaluation_params.batch_size,
+        "num_workers": evaluation_params.workers,
+        "device": evaluation_params.device,
+        "gpu_index": evaluation_params.gpu_index,
     }
 
     return train_exp.id, exp_params_dict
@@ -256,7 +272,6 @@ def _serialize_run_detail(run, db: Session) -> dict:
     }
     if run.experiment_params:
         exp = run.experiment_params
-        dataset = dataset_repository.get_by_id(db, exp.dataset_id)
         result["exp_params"] = {
             "class_mapping": exp.class_mapping,
             "batch_size": exp.batch_size,
@@ -272,7 +287,7 @@ def _serialize_run_detail(run, db: Session) -> dict:
             "pooling": exp.pooling,
             "freeze_backbone": exp.freeze_backbone,
             "path_to_checkpoint": exp.path_to_checkpoint,
-            "dataset_name": dataset.name if dataset else None,
+            "dataset_name": exp.dataset_name,
             "path_to_train": exp.path_to_train,
             "path_to_validation": exp.path_to_validation,
             "path_to_test": exp.path_to_test,

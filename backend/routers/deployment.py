@@ -48,6 +48,8 @@ def create_bundle(
         raise EntityNotFoundError("Run", run_id)
     if run.training_status != TrainingStatus.success:
         raise InvalidStateError("Cannot deploy a run that has not completed training successfully.")
+    if run.deploy_task_id is not None or run.deploy_artifact_key is not None:
+        raise InvalidStateError("A deployment is already in progress or completed for this run.")
 
     task = run_deployment.delay(run_id, user.sub, request.name)
     update_deploy_task_id(db, run_id=run_id, deploy_task_id=task.id)

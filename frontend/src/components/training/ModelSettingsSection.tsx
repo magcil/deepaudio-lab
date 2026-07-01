@@ -1,14 +1,15 @@
 import type { TrainingFormData } from './TrainingForm'
 
 interface Props {
-  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'modelSamplingRate' | 'checkpoint'>
+  values: Pick<TrainingFormData, 'backbone' | 'poolingMethod' | 'pretrained' | 'freezeBackbone' | 'checkpoint'>
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
   onToggle: (name: keyof TrainingFormData) => void
   backbones: string[]
   poolingMethods: string[]
+  fieldErrors: Record<string, string>
 }
 
-export default function ModelSettingsSection({ values, onChange, onToggle, backbones, poolingMethods }: Props) {
+export default function ModelSettingsSection({ values, onChange, onToggle, backbones, poolingMethods, fieldErrors }: Props) {
   return (
     <div className="form-card">
       <h3 className="form-section-title">Model Settings</h3>
@@ -20,6 +21,7 @@ export default function ModelSettingsSection({ values, onChange, onToggle, backb
             <option key={b} value={b}>{b}</option>
           ))}
         </select>
+        {fieldErrors.backbone && <span className="field-error">{fieldErrors.backbone}</span>}
       </div>
 
       <div className="form-field">
@@ -29,6 +31,7 @@ export default function ModelSettingsSection({ values, onChange, onToggle, backb
             <option key={p} value={p}>{p}</option>
           ))}
         </select>
+        {fieldErrors.pooling && <span className="field-error">{fieldErrors.pooling}</span>}
       </div>
 
       <div className="form-row">
@@ -50,21 +53,6 @@ export default function ModelSettingsSection({ values, onChange, onToggle, backb
       </div>
 
       <div className="form-field">
-        <label htmlFor="modelSamplingRate">Sampling Rate (Hz)</label>
-        <input
-          id="modelSamplingRate"
-          name="modelSamplingRate"
-          type="number"
-          placeholder="e.g. 22050"
-          min={1}
-          step={1}
-          value={values.modelSamplingRate}
-          onChange={onChange}
-          required
-        />
-      </div>
-
-      <div className="form-field">
         <label htmlFor="checkpoint">
           Checkpoint
         </label>
@@ -77,6 +65,7 @@ export default function ModelSettingsSection({ values, onChange, onToggle, backb
           onChange={onChange}
           required
         />
+        {fieldErrors.checkpoint && <span className="field-error">{fieldErrors.checkpoint}</span>}
       </div>
     </div>
   )

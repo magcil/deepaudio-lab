@@ -14,7 +14,9 @@ export default function Home({ onSelectExperiment }: Props) {
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   useEffect(() => {
-    getRuns().then(setRuns)
+    getRuns().then(data =>
+      setRuns([...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+    )
   }, [])
 
   async function handleDownload(e: React.MouseEvent, id: number) {
@@ -74,6 +76,7 @@ export default function Home({ onSelectExperiment }: Props) {
                 )}
               </div>
               <p className="experiment-card__description">{run.description}</p>
+              <p className="experiment-card__timestamp">{new Date(run.created_at).toLocaleString()}</p>
               <div className="experiment-card__pills">
                 <span className="pill pill--training">Training</span>
                 {run.has_evaluation && <span className="pill pill--evaluation">Evaluated</span>}

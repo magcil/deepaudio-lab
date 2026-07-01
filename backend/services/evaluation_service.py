@@ -1,4 +1,5 @@
 # services/evaluation_service.py
+import gc
 import logging
 import time
 from dataclasses import dataclass, field
@@ -66,7 +67,10 @@ class EvaluationService:
                 label with precision, recall, f1-score, and support.
         """
         db = SessionLocal()
-
+        # Pre-bound so the finally block can unconditionally `del` them to free
+        # GPU memory, even if an exception fires before they are assigned.
+        model = None
+        x = None
         try:
             device = get_device(
                 device=exp_params["device"],
@@ -175,4 +179,12 @@ class EvaluationService:
                 ),
             )
         finally:
+            # Release GPU memory held by this job so it doesn't linger in the
+            # long-lived (--pool=solo) worker process and starve the next run.
+            # empty_cache() only frees UNreferenced memory, so drop refs first.
+            del model, x
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
             db.close()
