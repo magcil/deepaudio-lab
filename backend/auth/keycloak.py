@@ -1,4 +1,4 @@
-from keycloak import KeycloakAdmin, KeycloakOpenID, KeycloakOpenIDConnection
+from jwt import PyJWKClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,25 +7,16 @@ class KeycloakSettings(BaseSettings):
 
     keycloak_server_url: str
     keycloak_realm: str
-    keycloak_client_id: str
-    keycloak_client_secret: str
 
 
 settings = KeycloakSettings()  # type: ignore[call-arg]
 
-keycloak_openid = KeycloakOpenID(
-    server_url=settings.keycloak_server_url,
-    realm_name=settings.keycloak_realm,
-    client_id=settings.keycloak_client_id,
-    client_secret_key=settings.keycloak_client_secret,
-)
+# The backend is a pure token *verifier*. It reads the realm's public signing keys
+# from the JWKS (JSON Web Key Set) endpoint and validates JWT signatures locally —
+# no client, secret, or service account is involved (JWKS is a realm-level,
+# unauthenticated endpoint). PyJWKClient caches the key set (5 min by default) and
+# selects the right key by the token's `kid` header, so verification keeps working
+# across Keycloak signing-key rotation.
+_JWKS_URL = f"{settings.keycloak_server_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/certs"
 
-_connection = KeycloakOpenIDConnection(
-    server_url=settings.keycloak_server_url,
-    realm_name=settings.keycloak_realm,
-    client_id=settings.keycloak_client_id,
-    client_secret_key=settings.keycloak_client_secret,
-    verify=True,
-)
-
-keycloak_admin = KeycloakAdmin(connection=_connection)
+jwks_client = PyJWKClient(_JWKS_URL)
