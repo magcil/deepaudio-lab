@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.session import Base, engine
 from exceptions.handlers import register_exception_handlers
-from routers import auth, datasets, deployment, evaluation, run, tasks, training
+from routers import datasets, deployment, evaluation, run, tasks, training
 from storage.client import ensure_buckets
 
 
@@ -34,7 +34,6 @@ app.add_middleware(
 )
 
 # Add routers
-app.include_router(auth.router)
 app.include_router(training.router)
 app.include_router(evaluation.router)
 app.include_router(run.router)
