@@ -78,8 +78,7 @@ services:
         VITE_API_URL: https://${DOMAIN}/api
         VITE_KEYCLOAK_URL: https://auth.${DOMAIN}
         VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM}
-        # PUBLIC frontend client — NOT ${KEYCLOAK_CLIENT_ID} (that's the
-        # confidential backend client).
+        # The app's single (public) Keycloak client, used by the SPA for OIDC login.
         VITE_KEYCLOAK_CLIENT_ID: deepaudiolab
     container_name: deepaudio-frontend
     restart: unless-stopped
@@ -143,8 +142,6 @@ services:
       # against the same URL. extra_hosts resolves it internally via the edge.
       KEYCLOAK_SERVER_URL: https://auth.${DOMAIN}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
     extra_hosts:
       - "auth.${DOMAIN}:host-gateway"
     deploy:

@@ -44,31 +44,6 @@
       "attributes": {
         "post.logout.redirect.uris": "http://localhost:5173/*##<public_url>/*"
       }
-    },
-    {
-      "clientId": "deepaudiolab-backend",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": false,
-      "secret": "your-secret-here",
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": false
-    }
-  ],
-  "scopeMappings": [],
-  "clientScopeMappings": {},
-  "users": [
-    {
-      "username": "service-account-deepaudiolab-backend",
-      "enabled": true,
-      "serviceAccountClientId": "deepaudiolab-backend",
-      "clientRoles": {
-        "realm-management": [
-          "realm-admin"
-        ]
-      }
     }
   ]
 }

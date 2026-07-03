@@ -149,9 +149,10 @@ ARTIFACTS_BUCKET=artifacts
 USER_SPACE_LIMIT=10737418240
 KEYCLOAK_SERVER_URL=http://localhost:8080
 KEYCLOAK_REALM=deepaudiolab
-KEYCLOAK_CLIENT_ID=deepaudiolab-backend
-KEYCLOAK_CLIENT_SECRET=dev-secret
 ```
+
+The backend only verifies JWTs against the realm's public JWKS, so it needs no
+Keycloak client id or secret — just the server URL and realm.
 
 The training limits, concurrency caps, heartbeat, and reaper settings all have
 sensible defaults (see [Background services & limits](#background-services--limits)),
