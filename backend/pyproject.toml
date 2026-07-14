@@ -23,12 +23,15 @@ dependencies = [
     "python-multipart>=0.0.29",
 ]
 
-# Heavy ML stack (deepaudio-x pulls in torch + CUDA + librosa). Installed only in
+# Heavy ML stack (deepaudio-x pulls in torch + librosa). Installed only in
 # images that run training/evaluation/deployment or the API; the lean maintenance
 # worker and beat scheduler build WITHOUT this extra.
 [project.optional-dependencies]
 ml = [
     "deepaudio-x>=0.4.7",
+    "torch",
+    "torchvision",
+    "torchaudio",
 ]
 
 [dependency-groups]
@@ -37,6 +40,16 @@ dev = [
     "pytest>=8.4.2",
     "ruff>=0.15.7",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.ruff]
 line-length = 120

@@ -17,10 +17,14 @@ COPY pyproject.toml uv.lock ./
 ARG ML_EXTRA="--extra ml"
 
 # Export locked deps via uv then install with pip for reproducible builds.
+# torch/torchvision/torchaudio are pinned to the CPU-only build (see
+# tool.uv.sources in pyproject.toml) but uv export doesn't embed the index URL,
+# so pip needs the PyTorch CPU index to actually locate those +cpu wheels.
 RUN python -m venv /venv \
     && /venv/bin/pip install --no-cache-dir --upgrade pip \
     && uv export --frozen --no-dev --no-hashes ${ML_EXTRA} -o /tmp/requirements.txt \
-    && /venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+    && /venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt \
+        --extra-index-url https://download.pytorch.org/whl/cpu
 
 # ---- runtime ----
 FROM python:3.12-slim AS runtime
