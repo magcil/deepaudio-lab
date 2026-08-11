@@ -12,7 +12,7 @@ DeepAudioLab lets you take a folder of audio recordings and turn it into a worki
 
 A walkthrough of the full workflow: uploading a dataset, configuring and launching a training run, monitoring it live, evaluating the result, and packaging it into a deployable bundle.
 
-
+https://github.com/user-attachments/assets/bf22cc41-8e78-46b5-b50c-5f7f52e96da0
 
 ---
 
