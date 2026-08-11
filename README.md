@@ -1,8 +1,5 @@
 # DeepAudioLab
 
-[![License](https://img.shields.io/github/license/magcil/deepaudio-x.svg)](https://github.com/magcil/deepaudio-lab/blob/main/LICENSE)
-[![Run Tests](https://github.com/magcil/deepaudio-x/actions/workflows/tests.yml/badge.svg)](https://github.com/magcil/deepaudio-lab/actions/workflows/tests.yml)
-
 <p align="left">
   <img src="DeepAudioLab-logo.png" style="width: 60%" alt="DeepAudioLab logo">
 </p>
@@ -18,14 +15,14 @@ DeepAudioLab lets you take a folder of audio recordings and turn it into a worki
 - [What is DeepAudioLab?](#what-is-deepaudiolab)
 - [Key Features](#key-features)
 - [How a Model Is Built](#how-a-model-is-built)
-- [Quick Start (Using the App)](#quick-start-using-the-app)
-- [Installation & Running the App](#installation--running-the-app)
-  - [Prerequisites](#prerequisites)
-  - [Running with Docker](#running-with-docker)
-  - [Background Services & Limits](#background-services--limits)
+- [Quick Start](#quick-start)
+- [Tuning Limits for Large-Scale Experiments](#tuning-limits-for-large-scale-experiments)
+- [Deployment Reference](#deployment-reference)
+  - [Compose Files & Make Targets](#compose-files--make-targets)
+  - [Maintenance Services & Concurrency Caps](#maintenance-services--concurrency-caps)
   - [Service URLs](#service-urls)
-  - [Local Development (Without Containers)](#local-development-without-containers)
-  - [Development & Testing](#development--testing)
+- [Local Development](#local-development)
+  - [Running Services on the Host](#running-services-on-the-host)
 - [User Guide](#user-guide)
   - [1. Create an Account / Sign In](#1-create-an-account--sign-in)
   - [2. Prepare and Upload a Dataset](#2-prepare-and-upload-a-dataset)
@@ -33,15 +30,6 @@ DeepAudioLab lets you take a folder of audio recordings and turn it into a worki
   - [4. Monitor Progress](#4-monitor-progress)
   - [5. Evaluate a Model](#5-evaluate-a-model)
   - [6. Deploy a Trained Model (Bundle)](#6-deploy-a-trained-model-bundle)
-- [Available Backbones](#available-backbones)
-- [Pooling Methods](#pooling-methods)
-- [Architecture Overview](#architecture-overview)
-- [Technology Stack](#technology-stack)
-- [Backend API](#backend-api)
-- [Security](#security)
-- [Data Storage Design](#data-storage-design)
-- [Database Schema](#database-schema)
-- [Glossary](#glossary)
 
 ---
 
@@ -50,7 +38,7 @@ DeepAudioLab lets you take a folder of audio recordings and turn it into a worki
 DeepAudioLab is a web-based platform for training, evaluating, and deploying deep learning audio classifiers. Starting with a raw folder of `.wav` files, a user is able to produce a deployable, containerized model, with **zero code** and **no local GPU required**.
 
 DeepAudioLab supports:
-- Multiple pretrained backbone architectures (via the internal `deepaudio-x` library)
+- Multiple pretrained backbone architectures (via the internal `deepaudio-x` library) (see [https://github.com/magcil/deepaudio-x](https://github.com/magcil/deepaudio-x))
 - Near Real-time training progress tracking
 - On-premises or private-cloud deployment, fully containerized with Docker Compose
 
@@ -74,29 +62,65 @@ Every model trained in DeepAudioLab is assembled from three interchangeable piec
 
 You pick the backbone and pooling method from drop-downs; DeepAudioLab assembles and trains the model for you.
 
-## Quick Start (Using the App)
+## Quick Start
 
-A condensed end-to-end checklist for a typical project, once the app is up and running (see [Installation & Running the App](#installation--running-the-app) below if you haven't set it up yet):
+We recommend running the app via [docker](https://docs.docker.com/get-docker/). To install the app locally using only the CPU simply run the command
 
-1. **Prepare your data** in the required folder structure (see [Prepare and Upload a Dataset](#2-prepare-and-upload-a-dataset)).
-2. **Upload** the dataset on the **Datasets** tab.
-3. **Train** a model on the **Training** tab: fill in Data Configuration, Model Settings, and Hyperparameters, then press **Start Training**.
-4. **Monitor** the run via the Homepage experiment card and the **Activity Monitor**.
-5. **Evaluate** the trained model on the **Evaluation** tab and read the classification report.
-6. **Deploy** by creating a bundle on the **Deployment** tab, downloading it, and following the bundle's README.
+```bash
+make up
+```
+
+This will start all microservices of the app (e.g., frontend, backend, worker, database, etc.). If nvidia GPU is available then run the command (requires the `nvidia-container-toolkit` to be installed on host)
+
+```bash
+make up-gpu
+```
+
+Once the app is installed navigate to the keycloak admin panel in [http://localhost:8080](http://localhost:8080) and login using the default admin credentials:
+
+- username: `admin`
+- password: `admin`
+
+Select the deepaudiolab realm and create a user in `Users` section. Once the user is created you are ready to interact with app! Navigate to the frontend in [http://localhost:5173](http://localhost:5173) and enter your user credentials. 
+
+Congrats! You are inside the web-app and ready to develop your audio classification systems!
+
+For detailed instructions on how to interact with the UI you can check the [User Manual](docs/DeepAudioLab-user-manual.md).
 
 ---
 
-## Installation & Running the App
+## Tuning Limits for Large-Scale Experiments
 
-### Prerequisites
+The local stack is configured by [`deploy/env/local.env`](deploy/env/local.env). Its defaults are deliberately conservative so the app runs comfortably on a laptop. If you have a bigger machine (or a GPU) and want to run larger-scale experiments, these are the limits to raise:
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Node.js & npm
-- [Docker](https://docs.docker.com/get-docker/)
+| Variable | Default | What it caps |
+|---|---|---|
+| `USER_SPACE_LIMIT` | `10737418240` (10 GB) | Total upload quota **per user**. Exceeding it rejects the dataset upload. |
+| `TOTAL_STORAGE_LIMIT` | `107374182400` (100 GB) | Upload quota **across all users**, a system-wide ceiling. |
+| `MAX_SEGMENT_DURATION` | `10.0` | Longest audio segment, in seconds, allowed per training example. |
+| `MAX_EPOCHS` | `100` | Highest number of epochs a training run may request. |
+| `MAX_BATCH_SIZE` | `128` | Largest batch size accepted. Raise only as far as your GPU memory allows. |
+| `MAX_NUM_WORKERS` | `4` | Most CPU data-loading workers per job. Keep at or below your core count. |
 
-### Running with Docker
+The two storage limits are in **bytes** (`107374182400` = 100 GB). The other four are ceilings checked when a job is submitted, so a run asking for more is rejected with a clear error rather than silently clamped.
+
+**To apply a change,** edit the file and bring the stack back up:
+
+```bash
+make up
+```
+
+These values are read at container startup, so this recreates the backend with the new limits. No rebuild is needed, since only configuration changed.
+
+> These limits govern how large a *single* job may be. The separate caps on *how many* jobs run concurrently are described in [Maintenance Services & Concurrency Caps](#maintenance-services--concurrency-caps).
+
+`local.env` holds the rest of the local configuration as well, including database credentials, S3 bucket names, and the job concurrency, heartbeat, and dataset-retention settings. It is commented throughout, so it is worth a read before a large run.
+
+---
+
+## Deployment Reference
+
+### Compose Files & Make Targets
 
 Deployment compose files live under [`deploy/`](deploy/), a **ports-less base** plus per-environment overlays, and a root `Makefile` wraps the (otherwise long) `docker compose` invocations.
 
@@ -156,7 +180,7 @@ docker compose --project-directory . -f deploy/docker-compose.prod.yml \
 
 </details>
 
-### Background Services & Limits
+### Maintenance Services & Concurrency Caps
 
 The `app` profile also starts two maintenance services:
 
@@ -200,9 +224,13 @@ docker compose --project-directory . \
 | SeaweedFS S3 API | http://localhost:8333 |
 | SeaweedFS admin UI | http://localhost:23646 |
 
-### Local Development (Without Containers)
+---
 
-Requires the infra services to be running first (`make infra`).
+## Local Development
+
+### Running Services on the Host
+
+Runs the backend, worker, and frontend directly on your machine instead of in containers. Requires the infra services to be running first (`make infra`).
 
 **Environment** create a `.env` file inside `backend/`:
 
@@ -222,7 +250,7 @@ KEYCLOAK_REALM=deepaudiolab
 
 The backend only verifies JWTs against the realm's public JWKS, so it needs no Keycloak client id or secret, just the server URL and realm.
 
-The training limits, concurrency caps, heartbeat, and reaper settings all have sensible defaults (see [Background Services & Limits](#background-services--limits)), so you only need to add them to `backend/.env` if you want to override them.
+The training limits, concurrency caps, heartbeat, and reaper settings all have sensible defaults (see [Maintenance Services & Concurrency Caps](#maintenance-services--concurrency-caps)), so you only need to add them to `backend/.env` if you want to override them.
 
 **Backend dependencies:** the heavy ML stack (`deepaudio-x` → PyTorch/CUDA) is an optional `ml` extra, so the API and training worker need it installed explicitly:
 
@@ -285,26 +313,13 @@ uv run celery -A worker.app.celery_app worker --loglevel=info --pool=solo \
   --queues=maintenance --include=worker.maintenance
 ```
 
-See [Background Services & Limits](#background-services--limits) for the env variables that control it.
-
-### Development & Testing
-
-Install backend dev dependencies (includes `pytest`, `ruff`, and type stubs) alongside the ML extra:
-
-```bash
-cd backend
-uv sync --extra ml --group dev
-```
-
-Lint:
-
-```bash
-uv run ruff check .
-```
+See [Maintenance Services & Concurrency Caps](#maintenance-services--concurrency-caps) for the env variables that control it.
 
 ---
 
 ## User Guide
+
+For a detailed user guide please check the [User Manual](docs/DeepAudioLab-user-manual.md)
 
 ### 1. Create an Account / Sign In
 
@@ -407,7 +422,7 @@ When finished, the experiment's card gains an `EVALUATED` tag. Open it to see th
 
 ### 6. Deploy a Trained Model (Bundle)
 
-> This is about packaging a trained model for downstream use, not about deploying the DeepAudioLab application itself (see [Installation & Running the App](#installation--running-the-app) for that).
+> This is about packaging a trained model for downstream use, not about deploying the DeepAudioLab application itself (see the [Deployment Reference](#deployment-reference) for that).
 
 1. Open the **Deployment** tab.
 2. Under **Create Bundle**, choose a trained (successful) **Experiment**.
@@ -419,148 +434,5 @@ Building a bundle is a job. Thus, you can track it in the Activity Monitor.
 Once complete, the bundle appears under **Available Bundles** with a **Download** button. A shortcut download icon also appears directly on the experiment's Homepage card.
 
 **Running the bundle:** the downloaded ZIP is a self-contained inference package. Unzip it, build the included Docker image, and run the inference server locally or on any machine (full instructions are in the bundle's own README).
-
----
-
-## Available Backbones
-
-| Backbone | Description | Reference |
-|---|---|---|
-| `beats` | Transformer-based audio model pre-trained self-supervised with acoustic tokenizers; strong general-purpose representations. | Chen et al., *BEATs: Audio Pre-Training with Acoustic Tokenizers*, ICML 2023 (arXiv:2212.09058) |
-| `passt` | Patchout faSt Spectrogram Transformer: efficient audio transformer trained with patchout for speed and regularization. | Koutini et al., *Efficient Training of Audio Transformers with Patchout*, Interspeech 2022 (arXiv:2110.05069) |
-| `mobilenet_05_as` | Efficient MobileNetV3-based CNN (0.5× width), pre-trained on AudioSet via knowledge distillation. Lightweight and fast. | Schmid et al., *Efficient Large-scale Audio Tagging via Transformer-to-CNN Knowledge Distillation*, ICASSP 2023 (arXiv:2211.04772) |
-| `mobilenet_10_as` | Same efficient CNN at 1.0× width, balance of size and accuracy. | Schmid et al., ICASSP 2023 (arXiv:2211.04772) |
-| `mobilenet_40_as` | Largest variant (4.0× width), highest accuracy, more compute. | Schmid et al., ICASSP 2023 (arXiv:2211.04772) |
-
-## Pooling Methods
-
-| Method | Description | Reference |
-|---|---|---|
-| `gap` | Global average pooling, averages features over the time axis. Simple and robust. | — |
-| `simpool` | A simple attention-based pooling mechanism that learns how to combine features across time. | *Keep It SimPool: Who Said Supervised Transformers Suffer from Attention Deficit?* |
-| `ep` | Efficient probing, attentive pooling designed for a good accuracy/efficiency trade-off. | *Attention, Please! Revisiting Attentive Probing Through the Lens of Efficiency* |
-
----
-
-## Architecture Overview
-
-DeepAudioLab is composed of containerized services communicating over a private Docker network:
-
-- **Frontend SPA** (React 19 + Vite): the user-facing interface. Handles auth via Keycloak-JS (OIDC Authorization Code Flow with PKCE) before calling the Backend API.
-- **Backend API** (FastAPI, Python 3.12): the central orchestrator. Validates JWTs on every request, manages dataset/run records in PostgreSQL, dispatches async ML tasks to the Celery Worker via Redis, and generates pre-signed S3 URLs for direct client-storage interaction.
-- **Celery Worker** (Celery 5.3, Python 3.12): executes training, evaluation, and deployment jobs. Consumes tasks from Redis, writes loss metrics/status to PostgreSQL, and reads/writes model artifacts to object storage.
-- **Redis**: Celery message broker and result backend; also holds live task progress state.
-- **PostgreSQL**: all structured application data (users, datasets, runs, experiment parameters, loss history, classification reports).
-- **SeaweedFS**: S3-compatible object storage for raw audio, checkpoints, and deployment artifacts, reachable by clients only via short-lived pre-signed URLs.
-- **Keycloak**: identity and access management (registration, login, JWT issuance).
-
-### Backend internal layering
-
-The Backend API follows a strict layered architecture:
-
-1. **Routers** (Auth, Dataset, Run, Training, Evaluation, Deployment, Task): REST entry points; handle routing, input validation, and response serialization only.
-2. **Services** (Auth, Dataset, Run, Training, Evaluation, Deploy): all domain/business logic.
-3. **Repositories** (User, Dataset, Run, Experiment Params, Loss, Classification Report): SQLAlchemy-based CRUD against PostgreSQL only.
-
-No router talks directly to a repository, and no repository contains business logic. A JWT Verifier cuts across all layers, validating every inbound request against Keycloak's published public key before any handler executes.
-
-## Technology Stack
-
-| Layer | Technology | Version |
-|---|---|---|
-| Frontend | React + TypeScript | 19.2 / 5.9 |
-| Frontend Build Tool | Vite | 8.0 |
-| UI Library | Bootstrap | 5.3 |
-| Charts | Recharts | 3.8 |
-| Backend | FastAPI + Uvicorn | 0.135 / 0.42 |
-| ORM | SQLAlchemy | 2.0 |
-| Task Queue | Celery + Redis | 5.3 / 7 |
-| Database | PostgreSQL | 16 |
-| Object Storage | SeaweedFS (S3-compatible) | 3.80 |
-| Identity Provider | Keycloak | 26.0 |
-| ML Framework | deepaudio-x, PyTorch | 0.4.6 |
-| Container Runtime | Docker + Compose | latest |
-
-## Backend API
-
-All routes except the health check require a Bearer JWT issued by Keycloak, validated via RS256 signature. Long-running operations return `202 Accepted` with a `task_id` immediately, then run asynchronously.
-
-| Domain | Method | Path | Auth | Description |
-|---|---|---|---|---|
-| root | GET | `/` | None | Health check |
-| dataset | POST | `/datasets/presigned` | Regular | Enforce quota, register dataset, return per-file presigned upload URLs |
-| dataset | POST | `/datasets/{id}/confirm` | Regular | Mark dataset ready; record size and file count |
-| dataset | PATCH | `/datasets/{id}/error` | Regular | Mark dataset as errored after a failed upload |
-| dataset | GET | `/datasets/` | Regular | List the authenticated user's datasets |
-| dataset | GET | `/datasets/{id}/splits` | Regular | List split sub-directories for a dataset |
-| dataset | DELETE | `/datasets/{id}` | Regular | Delete dataset record and all its S3 objects |
-| train | POST | `/train/` | Regular | Start async training; creates Run + ExperimentParams |
-| train | GET | `/train/options` | Regular | Available backbones, pooling strategies, device indices |
-| train | GET | `/train/progress/{task_id}` | Regular | Epoch, losses, progress %, elapsed time, ETA |
-| evaluate | GET | `/evaluate/options` | Regular | Available GPU/CPU device options |
-| evaluate | POST | `/evaluate/` | Regular | Start async evaluation on the test split |
-| evaluate | GET | `/evaluate/progress/{task_id}` | Regular | Evaluation progress and status |
-| runs | GET | `/runs/` | Regular, Admin | List runs (own for regular users; all for admins) |
-| runs | GET | `/runs/type/train` | Regular | List completed runs eligible for evaluation |
-| runs | GET | `/runs/{id}` | Regular, Admin | Get run detail: params, loss history, report |
-| runs | DELETE | `/runs/{id}` | Regular, Admin | Delete run record, checkpoint, and artifacts |
-| runs | POST | `/runs/{id}/deploy` | Regular | Trigger async deployment bundle creation |
-| runs | GET | `/runs/{id}/deploy/download` | Regular | Generate a fresh presigned bundle download URL |
-| tasks | GET | `/tasks/` | Regular | List active tasks + failures from the last 24 hours |
-
-## Security
-
-- **Storage security**: object storage is never publicly reachable. All client interaction goes through Backend-issued, key-scoped pre-signed PUT/GET URLs.
-- **Transport security**: all public traffic is HTTPS in production; internal service-to-service traffic stays on a private Docker bridge network. Keycloak is served on its own subdomain.
-- **Secret management**: all credentials and keys are injected via environment variables / `.env` files at runtime and `.env` is git-ignored.
-
-## Data Storage Design
-
-Object storage (SeaweedFS, S3-compatible) is organized into three buckets:
-
-| Bucket | Contents | Written by |
-|---|---|---|
-| `raw-audios` | Uploaded audio, as `{user_id}/{dataset_name}/{split}/{class}/{file}` | Browser (direct presigned PUT) |
-| `checkpoints` | Best model weights (`.pt`) from training | Celery Worker |
-| `artifacts` | Deployment bundle ZIPs | Celery Worker |
-
-Client-side uploads go straight from the browser to storage via presigned URLs, keeping large binary payloads off the API tier. The expected `{split}/{class}/{file}.wav` structure is validated at training time. If it doesn't conform, the training task fails with a clear error.
-
-**Asynchronous task state** is tracked in two tiers: coarse status (`pending`/`in_progress`/`failed`/`successful`) is persisted in PostgreSQL as the authoritative record; fine-grained progress (epoch, per-epoch loss, ETA) is written ephemerally to Redis during execution and polled on demand via `GET /train/progress/{task_id}`.
-
-## Database Schema
-
-Six core entities, with `Run` as the central table:
-
-| Entity | Primary Key | Unique Constraint | Description |
-|---|---|---|---|
-| User | `id` (Keycloak UUID) | `username` | Registered user, mirrored from Keycloak |
-| Dataset | `id` | `(user_id, name)` | Uploaded audio dataset; tracks status, S3 prefix, size, file count |
-| Run | `id` | `(created_by, name)` | Central experiment entity, ties together config, loss history, and evaluation results |
-| Experiment Params | `id` | `run_id` (1:1) | Full hyperparameter/config snapshot for a run |
-| Loss | `id` | `(run_id, epoch, split_type)` | Per-epoch train/validation loss (many:1 with Run) |
-| Classification Report | `id` | `run_id` (1:1) | Per-class precision/recall/F1 after evaluation |
-
-A `User` owns zero-or-more `Dataset`s and `Run`s. Each `Run` has exactly one `ExperimentParams`, at most one `ClassificationReport`, and zero-or-more `Loss` records. All foreign keys cascade on delete. Names are unique per-user, not globally. `experiment_params.class_mapping` and `classification_report.report` are stored as JSON columns for schema flexibility.
-
-## Glossary
-
-| Term | Definition |
-|---|---|
-| Backbone | A pretrained neural network feature extractor used as the base of the audio classification model |
-| Pooling | A strategy for aggregating temporal features into a fixed-size representation (e.g. Global Average Pooling) |
-| Epoch | One complete pass through the entire training dataset |
-| Patience | Number of epochs without validation-loss improvement before early stopping halts training |
-| Presigned URL | A time-limited, pre-authenticated URL granting temporary permission for a specific S3 operation without API credentials |
-| Celery | A distributed task queue framework for Python, delegating work to background workers via a message broker |
-| SeaweedFS | An open-source, S3-compatible distributed object storage system |
-| Keycloak | An open-source Identity and Access Management solution supporting OIDC, OAuth 2.0, and SAML 2.0 |
-| OIDC | OpenID Connect, an identity layer on top of OAuth 2.0 providing JWT-based identity tokens |
-| JWT | JSON Web Token, a compact, signed token encoding claims (RS256 here) |
-| RBAC | Role-Based Access Control, permissions assigned to roles, not individual users |
-| Classification Report | Summary of precision, recall, and F1-score per class, produced by `sklearn.metrics.classification_report` |
-| Deployment Bundle | A ZIP archive containing model weights, class mapping JSON, and inference utilities, ready for integration |
-| deepaudio-x | The custom internal PyTorch library used to construct and train audio classification models |
-| C4 Model | A software architecture diagramming framework (Context, Containers, Components, Code) |
 
 ---

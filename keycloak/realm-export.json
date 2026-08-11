@@ -1,0 +1,47 @@
+{
+  "realm": "deepaudiolab",
+  "enabled": true,
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "resetPasswordAllowed": false,
+  "accessTokenLifespan": 1200,
+  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeout": 21600,
+  "roles": {
+    "realm": [
+      {
+        "name": "regular",
+        "description": "Standard application user"
+      },
+      {
+        "name": "admin",
+        "description": "Application administrator"
+      }
+    ]
+  },
+  "defaultRoles": [
+    "regular"
+  ],
+  "clients": [
+    {
+      "clientId": "deepaudiolab",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
+    }
+  ]
+}

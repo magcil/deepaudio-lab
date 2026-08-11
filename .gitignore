@@ -31,8 +31,6 @@ share/python-wheels/
 .env.prod
 .env.*.local
 deploy/seaweedfs/s3.json
-# Contains the real Keycloak client secret (use realm-export_example.json as template)
-keycloak/realm-export.json
 # TLS private keys
 deploy/nginx/certs/
 certbot/
