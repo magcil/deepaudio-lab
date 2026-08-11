@@ -8,10 +8,17 @@
 
 DeepAudioLab lets you take a folder of audio recordings and turn it into a working, deployable audio classifier, with no code required. Upload your data, configure an experiment through a simple web UI, and DeepAudioLab handles training, evaluation, and packaging for deployment.
 
+## Demo
+
+A walkthrough of the full workflow: uploading a dataset, configuring and launching a training run, monitoring it live, evaluating the result, and packaging it into a deployable bundle.
+
+
+
 ---
 
 ## Table of Contents
 
+- [Demo](#demo)
 - [What is DeepAudioLab?](#what-is-deepaudiolab)
 - [Key Features](#key-features)
 - [How a Model Is Built](#how-a-model-is-built)
