@@ -22,7 +22,6 @@ DeepAudioLab lets you take a folder of audio recordings and turn it into a worki
   - [Maintenance Services & Concurrency Caps](#maintenance-services--concurrency-caps)
   - [Service URLs](#service-urls)
 - [Local Development](#local-development)
-  - [Running Services on the Host](#running-services-on-the-host)
 - [User Guide](#user-guide)
   - [1. Create an Account / Sign In](#1-create-an-account--sign-in)
   - [2. Prepare and Upload a Dataset](#2-prepare-and-upload-a-dataset)
@@ -100,7 +99,7 @@ The local stack is configured by [`deploy/env/local.env`](deploy/env/local.env).
 | `MAX_SEGMENT_DURATION` | `10.0` | Longest audio segment, in seconds, allowed per training example. |
 | `MAX_EPOCHS` | `100` | Highest number of epochs a training run may request. |
 | `MAX_BATCH_SIZE` | `128` | Largest batch size accepted. Raise only as far as your GPU memory allows. |
-| `MAX_NUM_WORKERS` | `4` | Most CPU data-loading workers per job. Keep at or below your core count. |
+| `MAX_NUM_WORKERS` | `8` | Most CPU data-loading workers per job. Keep at or below your core count. |
 
 The two storage limits are in **bytes** (`107374182400` = 100 GB). The other four are ceilings checked when a job is submitted, so a run asking for more is rejected with a clear error rather than silently clamped.
 
@@ -227,8 +226,6 @@ docker compose --project-directory . \
 ---
 
 ## Local Development
-
-### Running Services on the Host
 
 Runs the backend, worker, and frontend directly on your machine instead of in containers. Requires the infra services to be running first (`make infra`).
 
@@ -388,8 +385,8 @@ Open the **Training** tab. The page is organized into three tables, filled top t
 - **Sampling Rate (Hz)** and **Segment Duration (s)**, e.g. 16000 Hz, 2-second segments
 
 **Model Settings**
-- **Backbone:** the pretrained feature extractor (see [Available Backbones](#available-backbones))
-- **Pooling Method:** `gap`, `simpool`, or `ep` (see [Pooling Methods](#pooling-methods))
+- **Backbone:** the pretrained feature extractor (see [Available Backbones](docs/DeepAudioLab-user-manual.md#available-backbones))
+- **Pooling Method:** `gap`, `simpool`, or `ep` (see [Pooling Methods](docs/DeepAudioLab-user-manual.md#pooling-methods))
 - **Pretrained:** start from pretrained weights (Yes) or from scratch (No)
 - **Freeze Backbone:** train only the head (Yes) or the whole model (No)
 - **Sampling Rate (Hz):** the rate the model itself operates at (audio is resampled if it differs from your data's rate)
